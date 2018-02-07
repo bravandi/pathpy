@@ -42,7 +42,7 @@ class TemporalNetwork:
        time difference between consecutive time-stamped edges.
     """
 
-    def __init__(self, tedges = None):
+    def __init__(self, tedges=None):
         """
         Constructor that generates a temporal network instance. 
         
@@ -52,32 +52,32 @@ class TemporalNetwork:
         """
 
         ## A list of time-stamped edges of this temporal network
-        self.tedges = []        
+        self.tedges = []
 
         ## A list of nodes of this temporal network
         self.nodes = []
 
         ## A dictionary storing all time-stamped links, indexed by time-stamps
-        self.time = _co.defaultdict( lambda: list() )
+        self.time = _co.defaultdict(lambda: list())
 
         ## A dictionary storing all time-stamped links, indexed by time and target node
-        self.targets = _co.defaultdict( lambda: dict() )
+        self.targets = _co.defaultdict(lambda: dict())
 
         ## A dictionary storing all time-stamped links, indexed by time and source node 
-        self.sources = _co.defaultdict( lambda: dict() )
+        self.sources = _co.defaultdict(lambda: dict())
 
         ## A dictionary storing time stamps at which links (v,*;t) originate from node v
-        self.activities = _co.defaultdict( lambda: list() )
+        self.activities = _co.defaultdict(lambda: list())
 
         ## A dictionary storing sets of time stamps at which links (v,*;t) originate from node v
         ## Note that the insertion into a set is much faster than repeatedly checking whether 
         ## an element already exists in a list!
-        self.activities_sets = _co.defaultdict( lambda: set() )
+        self.activities_sets = _co.defaultdict(lambda: set())
 
         ## An ordered list of time-stamps
-        self.ordered_times = []        
+        self.ordered_times = []
 
-        nodes_seen = _co.defaultdict( lambda:False )
+        nodes_seen = _co.defaultdict(lambda: False)
 
         if tedges is not None:
             Log.add('Building index data structures ...')
@@ -100,7 +100,6 @@ class TemporalNetwork:
             for v in self.nodes:
                 self.activities[v] = sorted(self.activities_sets[v])
             Log.add('finished.')
-
 
     @staticmethod
     def readFile(filename, sep=',', timestampformat="%Y-%m-%d %H:%M", maxlines=_sys.maxsize):
@@ -126,11 +125,11 @@ class TemporalNetwork:
 
         """
         assert (filename != ''), 'Empty filename given'
-        
+
         # Read header
         with open(filename, 'r') as f:
             tedges = []
-        
+
             header = f.readline()
             header = header.split(sep)
 
@@ -151,40 +150,40 @@ class TemporalNetwork:
 
             assert (source_ix >= 0 and target_ix >= 0), "Detected invalid header columns: %s" % header
 
-            if time_ix<0:
+            if time_ix < 0:
                 Log.add('No time stamps found in data, assuming consecutive links', Severity.WARNING)
-        
+
             Log.add('Reading time-stamped links ...')
 
             line = f.readline()
-            n = 1 
+            n = 1
             while line and n <= maxlines:
                 fields = line.rstrip().split(sep)
                 try:
-                    if time_ix >=0:
+                    if time_ix >= 0:
                         timestamp = fields[time_ix]
                         # if the timestamp is a number, we use this 
                         if timestamp.isdigit():
                             t = int(timestamp)
-                        else:   # if it is a string, we use the timestamp format to convert it to a UNIX timestamp                                
+                        else:  # if it is a string, we use the timestamp format to convert it to a UNIX timestamp
                             x = _dt.datetime.strptime(timestamp, timestampformat)
                             t = int(_t.mktime(x.timetuple()))
                     else:
-                        t = n                
-                    if t>=0:
+                        t = n
+                    if t >= 0:
                         tedge = (fields[source_ix], fields[target_ix], t)
                         tedges.append(tedge)
                     else:
-                        Log.add('Ignoring negative timestamp in line ' + str(n+1) + ': "' + line.strip() + '"', Severity.WARNING)
+                        Log.add('Ignoring negative timestamp in line ' + str(n + 1) + ': "' + line.strip() + '"',
+                                Severity.WARNING)
                 except (IndexError, ValueError):
-                    Log.add('Ignoring malformed data in line ' + str(n+1) + ': "' +  line.strip() + '"', Severity.WARNING)
+                    Log.add('Ignoring malformed data in line ' + str(n + 1) + ': "' + line.strip() + '"',
+                            Severity.WARNING)
                 line = f.readline()
                 n += 1
         # end of with open()
 
-        return TemporalNetwork(tedges = tedges)
-
-
+        return TemporalNetwork(tedges=tedges)
 
     def filterEdges(self, edge_filter):
         """Filter time-stamped edges according to a given filter expression. 
@@ -197,14 +196,51 @@ class TemporalNetwork:
         Log.add('Starting filtering ...', Severity.INFO)
         new_t_edges = []
 
-        for (v,w,t) in self.tedges:
-            if edge_filter(v,w,t):
-                new_t_edges.append((v,w,t))
+        for (v, w, t) in self.tedges:
+            if edge_filter(v, w, t):
+                new_t_edges.append((v, w, t))
 
-        Log.add('finished. Filtered out ' + str(self.ecount() - len(new_t_edges)) + ' time-stamped edges.', Severity.INFO)
+        Log.add('finished. Filtered out ' + str(self.ecount() - len(new_t_edges)) + ' time-stamped edges.',
+                Severity.INFO)
 
         return TemporalNetwork(tedges=new_t_edges)
 
+    def snapshots(self, delta_t_list):
+        """Merge network into snapshots within the given delta times.
+
+        :param delta_t_list: list containing tuples of delta-times (>=, <) to create snapshots from
+        :return: List of TemporalNetworks with all edges ts=0
+        """
+
+        if type(delta_t_list) == tuple:
+            delta_t_list = [delta_t_list]
+
+        result = dict()
+
+        times = _np.array(list(self.targets.keys()))
+
+        for delta in delta_t_list:
+
+            # query times for faster retrieval since it is a sorted list
+            edges = _np.where(_np.logical_and(times >= delta[0], times < delta[1]))
+
+            if len(edges[0]) > 0:
+                tn = TemporalNetwork()
+                result[delta] = tn
+
+                for time_index in edges[0]:
+                    for vertex, vertex_edge in self.targets[times[time_index]].items():
+                        for edge in vertex_edge:
+                            tn.addEdge(source=edge[0], target=edge[1], ts=0)  # ts=edge[2]
+
+                    # print("{}: {}".format(times[time_index], self.targets[times[time_index]]))
+
+                    pass
+            else:
+                result[delta] = None
+
+        return result
+        pass
 
     def addEdge(self, source, target, ts):
         """Adds a directed time-stamped edge (source,target;time) to the temporal network. To add an undirected 
@@ -231,8 +267,7 @@ class TemporalNetwork:
             self.activities[source].sort()
 
         # Reorder time stamps
-        self.ordered_times = sorted(self.time.keys())       
-
+        self.ordered_times = sorted(self.time.keys())
 
     def vcount(self):
         """
@@ -243,7 +278,6 @@ class TemporalNetwork:
 
         return len(self.nodes)
 
-        
     def ecount(self):
         """
         Returns the number of time-stamped edges (u,v;t) in the temporal network.
@@ -253,14 +287,12 @@ class TemporalNetwork:
 
         return len(self.tedges)
 
-
     def getObservationLength(self):
         """
         Returns the length of the observation time in time units.
         """
 
-        return max(self.ordered_times)-min(self.ordered_times)
-    
+        return max(self.ordered_times) - min(self.ordered_times)
 
     def getInterEventTimes(self):
         """
@@ -270,9 +302,8 @@ class TemporalNetwork:
 
         timediffs = []
         for i in range(1, len(self.ordered_times)):
-            timediffs += [self.ordered_times[i] - self.ordered_times[i-1]]
+            timediffs += [self.ordered_times[i] - self.ordered_times[i - 1]]
         return _np.array(timediffs)
-
 
     def getInterPathTimes(self):
         """
@@ -281,7 +312,7 @@ class TemporalNetwork:
         in the temporal network
         """
 
-        interPathTimes = _co.defaultdict( lambda: list() )
+        interPathTimes = _co.defaultdict(lambda: list())
         for e in self.tedges:
             # Get target v of current edge e=(u,v,t)
             v = e[1]
@@ -290,9 +321,8 @@ class TemporalNetwork:
             # Get time stamp of link (v,*,t_next) with smallest t_next such that t_next > t
             i = _bs.bisect_right(self.activities[v], t)
             if i != len(self.activities[v]):
-                interPathTimes[v].append(self.activities[v][i]-t)
+                interPathTimes[v].append(self.activities[v][i] - t)
         return interPathTimes
-
 
     def summary(self):
         """
@@ -301,23 +331,23 @@ class TemporalNetwork:
 
         summary = ''
 
-        summary += 'Nodes:\t\t\t' +  str(self.vcount()) + '\n'
+        summary += 'Nodes:\t\t\t' + str(self.vcount()) + '\n'
         summary += 'Time-stamped links:\t' + str(self.ecount()) + '\n'
-        if self.vcount()>0:
-            summary += 'Links/Nodes:\t\t' + str(self.ecount()/self.vcount()) + '\n'
+        if self.vcount() > 0:
+            summary += 'Links/Nodes:\t\t' + str(self.ecount() / self.vcount()) + '\n'
         else:
             summary += 'Links/Nodes:\t\tN/A\n'
-        if len(self.ordered_times)>1:
-            summary += 'Observation period:\t[' + str(min(self.ordered_times)) + ', ' + str(max(self.ordered_times)) + ']\n'
+        if len(self.ordered_times) > 1:
+            summary += 'Observation period:\t[' + str(min(self.ordered_times)) + ', ' + str(
+                max(self.ordered_times)) + ']\n'
             summary += 'Observation length:\t' + str(max(self.ordered_times) - min(self.ordered_times)) + '\n'
             summary += 'Time stamps:\t\t' + str(len(self.ordered_times)) + '\n'
 
-            d = self.getInterEventTimes()    
+            d = self.getInterEventTimes()
             summary += 'Avg. inter-event dt:\t' + str(_np.mean(d)) + '\n'
             summary += 'Min/Max inter-event dt:\t' + str(min(d)) + '/' + str(max(d)) + '\n'
-        
-        return summary       
 
+        return summary
 
     def __str__(self):
         """
@@ -325,9 +355,8 @@ class TemporalNetwork:
         this temporal network instance.
         """
         return self.summary()
-   
 
-    def ShuffleEdges(self, l=0, with_replacement=False):        
+    def ShuffleEdges(self, l=0, with_replacement=False):
         """
         Generates a shuffled version of the temporal network in which edge statistics (i.e.
         the frequencies of time-stamped edges) are preserved, while all order correlations are 
@@ -339,37 +368,36 @@ class TemporalNetwork:
         @param with_replacement: Whether or not the sampling should be with replacement (default False)
         """
 
-        tedges = []        
-        
+        tedges = []
+
         timestamps = [e[2] for e in self.tedges]
         edges = list(self.tedges)
-        
-        if l==0:
+
+        if l == 0:
             l = len(self.tedges)
         for i in range(l):
-            
+
             if with_replacement:
-            # Pick random link
+                # Pick random link
                 edge = edges[_np.random.randint(0, len(edges))]
                 # Pick random time stamp
                 time = timestamps[_np.random.randint(0, len(timestamps))]
             else:
                 # Pick random link
                 edge = edges.pop(_np.random.randint(0, len(edges)))
-            # Pick random time stamp
-                time = timestamps.pop(_np.random.randint(0, len(timestamps)))            
-            
-            # Generate new time-stamped link
-            tedges.append( (edge[0], edge[1], time) )
+                # Pick random time stamp
+                time = timestamps.pop(_np.random.randint(0, len(timestamps)))
+
+                # Generate new time-stamped link
+            tedges.append((edge[0], edge[1], time))
 
         # Generate temporal network
         t = TemporalNetwork(tedges=tedges)
 
         # Fix node order to correspond to original network
         t.nodes = self.nodes
-            
-        return t
 
+        return t
 
     def exportUnfoldedNetwork(self, filename):
         """
@@ -377,12 +405,12 @@ class TemporalNetwork:
         representation of the temporal network.
 
         @param filename: the name of the tex file to be generated.
-        """    
-        
+        """
+
         import os as _os
 
         output = []
-            
+
         output.append('\\documentclass{article}\n')
         output.append('\\usepackage{tikz}\n')
         output.append('\\usepackage{verbatim}\n')
@@ -401,42 +429,44 @@ class TemporalNetwork:
         output.append("\\tikzstyle{lbl} = [fill=white,text=black,circle]\n")
 
         last = ''
-            
+
         for n in _np.sort(self.nodes):
             if last == '':
                 output.append("\\node[lbl]                     (" + n + "-0)   {$" + n + "$};\n")
             else:
-                output.append("\\node[lbl,right=0.5cm of "+last+"-0] (" + n + "-0)   {$" + n + "$};\n")
+                output.append("\\node[lbl,right=0.5cm of " + last + "-0] (" + n + "-0)   {$" + n + "$};\n")
             last = n
-            
+
         output.append("\\setcounter{a}{0}\n")
-        output.append("\\foreach \\number in {"+ str(min(self.ordered_times))+ ",...," + str(max(self.ordered_times)+1) + "}{\n")
+        output.append("\\foreach \\number in {" + str(min(self.ordered_times)) + ",...," + str(
+            max(self.ordered_times) + 1) + "}{\n")
         output.append("\\setcounter{a}{\\number}\n")
         output.append("\\addtocounter{a}{-1}\n")
         output.append("\\pgfmathparse{\\thea}\n")
-        
-        for n in  _np.sort(self.nodes):
+
+        for n in _np.sort(self.nodes):
             output.append("\\node[v,below=0.3cm of " + n + "-\\pgfmathresult]     (" + n + "-\\number) {};\n")
-        output.append("\\node[lbl,left=0.5cm of " + _np.sort(self.nodes)[0] + "-\\number]    (col-\\pgfmathresult) {$t=$\\number};\n")
+        output.append("\\node[lbl,left=0.5cm of " + _np.sort(self.nodes)[
+            0] + "-\\number]    (col-\\pgfmathresult) {$t=$\\number};\n")
         output.append("}\n")
         output.append("\\path[->,thick]\n")
         i = 1
-        
+
         for ts in self.ordered_times:
             for edge in self.time[ts]:
                 output.append("(" + edge[0] + "-" + str(ts) + ") edge (" + edge[1] + "-" + str(ts + 1) + ")\n")
-                i += 1                                
+                i += 1
         output.append(";\n")
         output.append(
-    """\end{tikzpicture}
-    \end{center}
-    \end{document}""")
-        
+            """\end{tikzpicture}
+            \end{center}
+            \end{document}""")
+
         # create directory if necessary to avoid IO errors
-        directory = _os.path.dirname( filename )
+        directory = _os.path.dirname(filename)
         if directory != '':
-            if not _os.path.exists( directory ):
-                _os.makedirs( directory )
+            if not _os.path.exists(directory):
+                _os.makedirs(directory)
 
         with open(filename, "w") as tex_file:
             tex_file.write(''.join(output))
