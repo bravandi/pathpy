@@ -205,15 +205,78 @@ class TemporalNetwork:
 
         return TemporalNetwork(tedges=new_t_edges)
 
-    def snapshots(self, delta_t_list):
-        """Merge network into snapshots within the given delta times.
+    def convertStaticNetworkAndNormalize(self):
+        """
+        Converts the network to its static representation where the weight of edges represent
+        the frequency of that edge occurance with the observation period.
+        The normalizition process maps each node to an integer in range(0, number of nodes) and returns the list of edges
+        :return: {
+                    'nodes_maps': dict[node]=mapped index,
+                    'edges_weight_frequency': [(from, to, frequency)]
+                    'edges_frequency_dict': dict[(from, to)] = frequency
+                }
+        """
 
-        :param delta_t_list: list containing tuples of delta-times (>=, <) to create snapshots from
+        node_index = 0
+        node_map = dict()
+
+        for node in self.nodes:
+            node_map[node] = node_index
+            node_index = node_index + 1
+
+        edges_frequency_dict = dict()
+
+        for edge in self.tedges:
+            edge_key = (node_map[edge[0]], node_map[edge[1]])
+
+            if edge_key in edges_frequency_dict:
+                edges_frequency_dict[edge_key] += 1
+            else:
+                edges_frequency_dict[edge_key] = 1
+
+        edges_weight_frequency = []
+
+        for edge_key, frequency in edges_frequency_dict.items():
+            edges_weight_frequency.append(edge_key + (frequency,))
+
+        return {
+            'nodes_maps': node_map,
+            'edges_weight_frequency': edges_weight_frequency,
+            'edges_frequency_dict': edges_frequency_dict
+        }
+
+        pass
+
+    def snapshots(self, interval=50, delta_t_list=None):
+        """
+        Create snapshots within the interval or the given delta times.
+        The comparsion is of intervals is [x, x + delta)
+        :param interval: will create the delta_t_list from range(0, max(timestamp), interval). Default=50
+        :param delta_t_list: Optional. If given the interval will be ignored. List containing tuples of delta-times (>=, <) to create snapshots from
         :return: List of TemporalNetworks with all edges ts=0
         """
 
-        if type(delta_t_list) == tuple:
-            delta_t_list = [delta_t_list]
+        if delta_t_list is None:
+            rng = [r for r in range(0, self.ordered_times[-1], interval)]
+
+            # make sure last element is in the list and +1 because the intervals are [,)
+            if rng[-1] != self.ordered_times[-1]:
+                rng.append(self.ordered_times[-1] + 1)
+                pass
+            else:
+                rng[-1] = rng[-1] + 1
+                pass
+
+            delta_t_list = []
+            start = 0
+            for r in rng[1:]:  # dont include 0 twice
+                delta_t_list.append((start, r))
+                start = r
+
+            pass
+        else:
+            if type(delta_t_list) == tuple:
+                delta_t_list = [delta_t_list]
 
         result = dict()
 
