@@ -305,6 +305,16 @@ class TemporalNetwork:
         return result
         pass
 
+    def addNode(self, new_node):
+        """
+
+        :param new_node:
+        :return:
+        """
+
+        if new_node not in self.nodes:
+            self.nodes.append(new_node)
+
     def addEdge(self, source, target, ts):
         """Adds a directed time-stamped edge (source,target;time) to the temporal network. To add an undirected 
             time-stamped link (u,v;t) at time t, please call addEdge(u,v;t) and addEdge(v,u;t).
@@ -418,6 +428,21 @@ class TemporalNetwork:
         this temporal network instance.
         """
         return self.summary()
+
+    def copy(self):
+        """
+
+        :return:
+        """
+        t = TemporalNetwork()
+
+        for node in self.nodes:
+            t.addNode(node)
+
+        for edge in self.tedges:
+            t.addEdge(edge[0], edge[1], edge[2])
+
+        return t
 
     def ShuffleEdges(self, l=0, with_replacement=False):
         """
