@@ -342,6 +342,40 @@ class TemporalNetwork:
         # Reorder time stamps
         self.ordered_times = sorted(self.time.keys())
 
+    def removeEdge(self, e):
+        """
+
+        :param e:
+        :return:
+        """
+        occurances = self.tedges.count(e)
+        if occurances > 1:
+            raise Exception("Edge {} is occured {} times.".format(e, occurances))
+        if occurances == 0:
+            return
+
+        self.tedges.remove(e)
+
+        source = e[0]
+        target = e[1]
+        ts = e[2]
+
+        # Add edge to index structures
+        self.time[ts].remove(e)
+        self.targets[ts][target].remove(e)
+        self.sources[ts][source].remove(e)
+
+        if ts in self.activities[source]:
+            # Depends how self.activities is used. If the order of items is important
+            # this removal can invalidate the datastructure, in case two different edges
+            # happens in the exact same time.
+
+            self.activities[source].remove(ts)
+            self.activities[source].sort()
+
+        # Reorder time stamps
+        self.ordered_times = sorted(self.time.keys())
+
     def vcount(self):
         """
         Returns the number of vertices in the temporal network. 
