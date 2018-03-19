@@ -33,6 +33,7 @@ import time as _t
 from pathpy.Log import Log
 from pathpy.Log import Severity
 import pathpy.Paths
+import networkx as nx
 
 
 class TemporalNetwork:
@@ -211,23 +212,27 @@ class TemporalNetwork:
         the frequency of that edge occurance with the observation period.
         The normalizition process maps each node to an integer in range(0, number of nodes) and returns the list of edges
         :return: {
-                    'nodes_maps': dict[node]=mapped index,
+                    'dict_source_mapped': dict[node]=mapped index,
+                    'dict_mapped_source': dict[mapped index]=node,
                     'edges_weight_frequency': [(from, to, frequency)]
                     'edges_frequency_dict': dict[(from, to)] = frequency
                 }
         """
 
         node_index = 0
-        node_map = dict()
+        dict_source_mapped = dict()
+        dict_mapped_source = dict()
 
         for node in self.nodes:
-            node_map[node] = node_index
+            dict_source_mapped[node] = node_index
+            dict_mapped_source[node_index] = node
+
             node_index = node_index + 1
 
         edges_frequency_dict = dict()
 
         for edge in self.tedges:
-            edge_key = (node_map[edge[0]], node_map[edge[1]])
+            edge_key = (dict_source_mapped[edge[0]], dict_source_mapped[edge[1]])
 
             if edge_key in edges_frequency_dict:
                 edges_frequency_dict[edge_key] += 1
@@ -240,20 +245,22 @@ class TemporalNetwork:
             edges_weight_frequency.append(edge_key + (frequency,))
 
         return {
-            'nodes_maps': node_map,
+            'dict_source_mapped': dict_source_mapped,
+            'dict_mapped_source': dict_mapped_source,
             'edges_weight_frequency': edges_weight_frequency,
             'edges_frequency_dict': edges_frequency_dict
         }
 
         pass
 
-    def snapshots(self, interval=50, delta_t_list=None):
+    def snapshots_observation_period(self, interval=50, delta_t_list=None):
         """
         Create snapshots within the interval or the given delta times.
         The comparsion is of intervals is [x, x + delta)
-        :param interval: will create the delta_t_list from range(0, max(timestamp), interval). Default=50
-        :param delta_t_list: Optional. If given the interval will be ignored. List containing tuples of delta-times (>=, <) to create snapshots from
-        :return: List of TemporalNetworks with all edges ts=0
+        :param      interval: will create the delta_t_list from range(0, max(timestamp), interval). Default=50
+        :param      delta_t_list: Optional. If given the interval will be ignored.
+                    List containing tuples of delta-times (>=, <) to create snapshots from
+        :return:    List of TemporalNetworks with all edges ts=0
         """
 
         if delta_t_list is None:
@@ -304,6 +311,39 @@ class TemporalNetwork:
 
         return result
         pass
+
+    def snapshots_continues(self, delta_t, stop_if_static_graph_is_connected=True):
+        """
+        Continusly creates aggreagted snapshots with time gap delta_t.
+        For example, snapshot[2] = all links in observation period [0, 2 * delta_t]
+        :param      delta_t: time gap to build snapshots
+        :param      stop_if_static_graph_is_connected: stop the process if the static represntation of graph becomes an
+                    undirected connected graph
+        :return:    dictionary of TemporalNetworks key=observation period
+        """
+
+        result = dict()
+
+        for obs_period in range(delta_t, self.ordered_times[-1] + 1, delta_t):
+            r = self.snapshots_observation_period(delta_t_list=(0, obs_period))
+
+            r_key = list(r.keys())[0]
+
+            r_t_net = r[r_key]
+            result[r_key] = r_t_net
+
+            if stop_if_static_graph_is_connected is True:
+                G = nx.Graph()
+
+                static_rep = r_t_net.convertStaticNetworkAndNormalize()
+
+                G.add_edges_from(static_rep["edges_frequency_dict"].keys())
+
+                if nx.is_connected(G) is True:
+                    break
+            pass
+
+        return result
 
     def addNode(self, new_node):
         """
