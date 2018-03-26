@@ -206,8 +206,11 @@ class TemporalNetwork:
 
         return TemporalNetwork(tedges=new_t_edges)
 
-    def convertStaticNetworkAndNormalize(self):
+    def convertStaticNetwork(self, normalzie=False):
         """
+        :param normalzie:   Map node names into a sequence of integers starts from 0 to len(nodes) - 1. If set True the
+                            return dictinary wont have the 'dict_source_mapped' and 'dict_mapped_source' keys.
+
         Converts the network to its static representation where the weight of edges represent
         the frequency of that edge occurance with the observation period.
         The normalizition process maps each node to an integer in range(0, number of nodes) and returns the list of edges
@@ -219,37 +222,58 @@ class TemporalNetwork:
                 }
         """
 
-        node_index = 0
-        dict_source_mapped = dict()
-        dict_mapped_source = dict()
-
-        for node in self.nodes:
-            dict_source_mapped[node] = node_index
-            dict_mapped_source[node_index] = node
-
-            node_index = node_index + 1
-
         edges_frequency_dict = dict()
-
-        for edge in self.tedges:
-            edge_key = (dict_source_mapped[edge[0]], dict_source_mapped[edge[1]])
-
-            if edge_key in edges_frequency_dict:
-                edges_frequency_dict[edge_key] += 1
-            else:
-                edges_frequency_dict[edge_key] = 1
-
         edges_weight_frequency = []
 
-        for edge_key, frequency in edges_frequency_dict.items():
-            edges_weight_frequency.append(edge_key + (frequency,))
+        if normalzie is False:
 
-        return {
-            'dict_source_mapped': dict_source_mapped,
-            'dict_mapped_source': dict_mapped_source,
-            'edges_weight_frequency': edges_weight_frequency,
-            'edges_frequency_dict': edges_frequency_dict
-        }
+            for edge in self.tedges:
+                edge_key = (edge[0], edge[1])
+
+                if edge_key in edges_frequency_dict:
+                    edges_frequency_dict[edge_key] += 1
+                else:
+                    edges_frequency_dict[edge_key] = 1
+
+            for edge_key, frequency in edges_frequency_dict.items():
+                edges_weight_frequency.append(edge_key + (frequency,))
+
+            return {
+                'edges_weight_frequency': edges_weight_frequency,
+                'edges_frequency_dict': edges_frequency_dict
+            }
+
+        else:
+
+            node_index = 0
+            dict_source_mapped = dict()
+            dict_mapped_source = dict()
+
+            for node in self.nodes:
+                dict_source_mapped[node] = node_index
+                dict_mapped_source[node_index] = node
+
+                node_index = node_index + 1
+
+            for edge in self.tedges:
+                edge_key = (dict_source_mapped[edge[0]], dict_source_mapped[edge[1]])
+
+                if edge_key in edges_frequency_dict:
+                    edges_frequency_dict[edge_key] += 1
+                else:
+                    edges_frequency_dict[edge_key] = 1
+
+            edges_weight_frequency = []
+
+            for edge_key, frequency in edges_frequency_dict.items():
+                edges_weight_frequency.append(edge_key + (frequency,))
+
+            return {
+                'dict_source_mapped': dict_source_mapped,
+                'dict_mapped_source': dict_mapped_source,
+                'edges_weight_frequency': edges_weight_frequency,
+                'edges_frequency_dict': edges_frequency_dict
+            }
 
         pass
 
@@ -314,8 +338,9 @@ class TemporalNetwork:
 
     def snapshots_continues(self, delta_t, stop_if_static_graph_is_connected=True):
         """
-        Continusly creates aggreagted snapshots with time gap delta_t.
-        For example, snapshot[2] = all links in observation period [0, 2 * delta_t]
+        Continusly creates aggreagted M snapshots with respect to delta_t.
+        This is same as adding an increasing sequence of snapshots observing from 0 to M * delta_t time.
+        For example, snapshot[1] = snapshot[0] + snapshot[1] = all links in observation period [0, 2 * delta_t].
         :param      delta_t: time gap to build snapshots
         :param      stop_if_static_graph_is_connected: stop the process if the static represntation of graph becomes an
                     undirected connected graph
@@ -335,7 +360,7 @@ class TemporalNetwork:
             if stop_if_static_graph_is_connected is True:
                 G = nx.Graph()
 
-                static_rep = r_t_net.convertStaticNetworkAndNormalize()
+                static_rep = r_t_net.convertStaticNetwork(normalzie=False)
 
                 G.add_edges_from(static_rep["edges_frequency_dict"].keys())
 
