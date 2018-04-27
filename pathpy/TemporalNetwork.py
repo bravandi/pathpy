@@ -34,6 +34,7 @@ from pathpy.Log import Log
 from pathpy.Log import Severity
 import pathpy.Paths
 import networkx as nx
+import networkx.algorithms.flow as nx_flow
 
 
 class TemporalNetwork:
@@ -586,7 +587,85 @@ class TemporalNetwork:
 
         return t
 
-    def exportUnfoldedNetwork(self, filename):
+    def convertUnfoldedNetworkNetworkx(self, layout=False):
+        g = nx.DiGraph()
+
+        sorted_nodes = _np.sort(self.nodes)
+        prev_time = 0
+        prev_time_nodes = []
+
+        y_pos = 1
+
+        i = 0
+        for n in sorted_nodes:
+            new_node = "0_{}".format(n)
+            prev_time_nodes.append(new_node)
+
+            if layout:
+                g.add_node(new_node, pos="{},{}!".format(i, y_pos - 1), label=str(n))
+                if i == 0:
+                    g.node[new_node]["xlabel"] = "t=0"
+            else:
+                g.add_node(new_node)
+
+            i += 1
+            pass
+
+        prev_ts = 0
+
+        for ts in self.ordered_times:
+            prev_time_nodes_temp = []
+
+            i = 0
+            for n in sorted_nodes:
+                new_node = "{}_{}".format(ts, n)
+                prev_time_nodes_temp.append(new_node)
+
+                if layout:
+                    g.add_node(new_node, pos="{},{}!".format(i, y_pos * -1), label=str(n))
+                    if i == 0:
+                        g.node[new_node]["xlabel"] = "t={}".format(ts)
+                else:
+                    g.add_node(new_node)
+
+                if layout:
+                    g.add_edge(prev_time_nodes[i], new_node, style="dotted")
+                else:
+                    g.add_edge(prev_time_nodes[i], new_node)
+
+                i += 1
+                pass
+
+            for edge in self.time[ts]:
+                from_node = "{}_{}".format(prev_ts, edge[0])
+                to_node = "{}_{}".format(edge[2], edge[1])
+
+                if from_node not in g or to_node not in g:
+                    raise Exception("Node does not exists.")
+
+                if layout:
+                    g.add_edge(
+                        "{}_{}".format(prev_ts, edge[0]),
+                        "{}_{}".format(edge[2], edge[1]),
+                        style="solid"
+                    )
+                else:
+                    g.add_edge(
+                        "{}_{}".format(prev_ts, edge[0]),
+                        "{}_{}".format(edge[2], edge[1])
+                    )
+                pass
+
+            del prev_time_nodes
+            prev_time_nodes = prev_time_nodes_temp
+            y_pos += 1
+            prev_ts = ts
+            pass
+
+        return g
+        pass
+
+    def exportUnfoldedNetworkLatex(self, filename):
         """
         Generates a tex file that can be compiled to a time-unfolded 
         representation of the temporal network.
@@ -613,36 +692,76 @@ class TemporalNetwork:
         output.append("\\tikzstyle{node} = [fill=lightgray,text=black,circle]\n")
         output.append("\\tikzstyle{v} = [fill=black,text=white,circle]\n")
         output.append("\\tikzstyle{dst} = [fill=lightgray,text=black,circle]\n")
-        output.append("\\tikzstyle{lbl} = [fill=white,text=black,circle]\n")
+        # output.append("\\tikzstyle{lbl} = [fill=white,text=black,circle]\n")
+        output.append("\\tikzstyle{lbl} = [fill=white,text=black]\n")
 
         last = ''
 
-        for n in _np.sort(self.nodes):
+        sorted_nodes = _np.sort(self.nodes)
+
+        extended_ordered_times = self.ordered_times[:]
+        extended_ordered_times.append(self.ordered_times[-1] + 1)
+
+        for n in sorted_nodes:
             if last == '':
-                output.append("\\node[lbl]                     (" + n + "-0)   {$" + n + "$};\n")
+                output.append("\\node[lbl]                     (" + str(n) + "-0)   {$" + str(n) + "$};\n")
             else:
-                output.append("\\node[lbl,right=0.5cm of " + last + "-0] (" + n + "-0)   {$" + n + "$};\n")
+                output.append(
+                    "\\node[lbl,right=0.5cm of " + str(last) + "-0] (" + str(n) + "-0)   {$" + str(n) + "$};\n")
             last = n
 
         output.append("\\setcounter{a}{0}\n")
-        output.append("\\foreach \\number in {" + str(min(self.ordered_times)) + ",...," + str(
-            max(self.ordered_times) + 1) + "}{\n")
-        output.append("\\setcounter{a}{\\number}\n")
-        output.append("\\addtocounter{a}{-1}\n")
-        output.append("\\pgfmathparse{\\thea}\n")
 
-        for n in _np.sort(self.nodes):
-            output.append("\\node[v,below=0.3cm of " + n + "-\\pgfmathresult]     (" + n + "-\\number) {};\n")
-        output.append("\\node[lbl,left=0.5cm of " + _np.sort(self.nodes)[
-            0] + "-\\number]    (col-\\pgfmathresult) {$t=$\\number};\n")
-        output.append("}\n")
+        if False:
+            output.append("\\foreach \\number in {" + str(min(self.ordered_times)) + ",...," + str(
+                max(self.ordered_times) + 1) + "}{\n")
+            output.append("\\setcounter{a}{\\number}\n")
+            output.append("\\addtocounter{a}{-1}\n")
+            output.append("\\pgfmathparse{\\thea}\n")
+
+            for n in _np.sort(self.nodes):
+                output.append(
+                    "\\node[v,below=0.3cm of " + str(n) + "-\\pgfmathresult]     (" + str(n) + "-\\number) {};\n")
+            output.append("\\node[lbl,left=0.5cm of " + str(_np.sort(self.nodes)[0]) +
+                          "-\\number]    (col-\\pgfmathresult) {$t=$\\number};\n")
+            output.append("}\n")
+            pass
+
+        prev_time = 0
+        for time in extended_ordered_times:
+            for n in sorted_nodes:
+                # output.append("\\node[v,below=0.3cm of " + str(n) + "-\\pgfmathresult]     (" + str(n) + "-\\number) {};\n")
+                output.append("\\node[v,below=0.3cm of {}-{}]     ({}-{}) {{}};\n".format(
+                    n, prev_time, n, time
+                ))
+                pass
+            output.append(
+                "\\node[lbl,left=0.5cm of {}-{}]    (col-{}) {{$t=${}}};\n".format(sorted_nodes[0], time, prev_time,
+                                                                                   time))
+            prev_time = time
+
         output.append("\\path[->,thick]\n")
         i = 1
 
-        for ts in self.ordered_times:
+        time_index = 0
+        for ts in extended_ordered_times[:-1]:
             for edge in self.time[ts]:
-                output.append("(" + edge[0] + "-" + str(ts) + ") edge (" + edge[1] + "-" + str(ts + 1) + ")\n")
-                i += 1
+                if False:
+                    output.append(
+                        "(" + str(edge[0]) + "-" + str(ts) + ") edge (" + str(edge[1]) + "-" + str(ts + 1) + ")\n")
+                    i += 1
+                    pass
+
+                if len(extended_ordered_times) == time_index + 1:
+                    raise Exception("Time does not exists")
+
+                output.append(
+                    "(" + str(edge[0]) + "-" + str(ts) + ") edge (" + str(edge[1]) + "-" + str(
+                        extended_ordered_times[time_index + 1]) + ")\n")
+                pass
+            time_index += 1
+            pass
+
         output.append(";\n")
         output.append(
             """\end{tikzpicture}
@@ -657,3 +776,71 @@ class TemporalNetwork:
 
         with open(filename, "w") as tex_file:
             tex_file.write(''.join(output))
+
+    def unfoldedNetworkControlMaxFlow(self, sources, layout=False):
+        """
+        Generates a dot file that can be compiled to a time-unfolded
+        representation of the temporal network.
+
+        @param path: the path of the tex file to be generated.
+        """
+
+        g = self.convertUnfoldedNetworkNetworkx(layout=layout)
+
+        for node in sources:
+            if node not in self.nodes:
+                raise Exception("Source node does not exists.")
+            pass
+
+        source_node = "s"
+
+        if layout:
+            g.add_node(source_node, pos="{},{}!".format(
+                len(self.nodes) + 2, -1 * len(self.ordered_times) / 2))
+        else:
+            g.add_node(source_node)
+
+        for node in g.nodes:
+            for source in sources:
+                if node.endswith("_{}".format(source)):
+                    if layout:
+                        g.add_edge(source_node, node, style="dashed")
+                    else:
+                        g.add_edge(source_node, node)
+
+        sink_node = "t"
+
+        if layout:
+            g.add_node(sink_node, pos="{},{}!".format(
+                (len(self.nodes) / 2) - 0.5, -1 * (len(self.ordered_times) + 2)))
+        else:
+            g.add_node(sink_node)
+
+        for node in self.nodes:
+            g.add_edge("{}_{}".format(self.ordered_times[-1], node), sink_node)
+            pass
+
+        nx.set_edge_attributes(g, 1.0, "capacity")
+        flow_value, flow_dict = nx_flow.maximum_flow(
+            g, source_node, sink_node
+            # ,flow_func = nx_flow.shortest_augmenting_path
+        )
+
+        for from_node, to_nodes in flow_dict.items():
+            for to_node, flow in to_nodes.items():
+                if flow > 0:
+                    if layout:
+                        g[from_node][to_node]["color"] = "blue"
+                        if from_node == source_node:
+                            # g[from_node][to_node]["label"] = "s>{}".format(to_node)
+                            pass
+                        elif "style" in g[from_node][to_node]:
+                            if g[from_node][to_node]["style"] == "dotted":
+                                # g[from_node][to_node]["label"] = "m"
+                                pass
+                            else:
+                                # g[from_node][to_node]["label"] = "f>"
+                                pass
+
+        return g
+        pass
