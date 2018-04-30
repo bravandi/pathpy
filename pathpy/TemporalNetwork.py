@@ -587,7 +587,32 @@ class TemporalNetwork:
 
         return t
 
-    def convertUnfoldedNetworkNetworkx(self, layout=False):
+    def convertUnfoldedNetworkNetworkx(self, memory=0, layout=False):
+        """
+
+        :param memory: dict specify how long a node keeps information. If an integer is given
+                       it will be assigned for all nodes. Default is infinity set by 0
+        :param layout:
+        :return:
+        """
+
+        def convert_string_to_x_y(position):
+            positions = position[:-1].split(",")
+            return float(positions[0]), float(positions[1])
+
+        if memory is not dict:
+            memory_int = memory
+            memory = dict()
+
+            for node in self.nodes:
+                memory[node] = memory_int
+            del memory_int
+        else:
+            for node in self.nodes:
+                if node not in memory:
+                    memory[node] = 0
+            pass
+
         g = nx.DiGraph()
 
         sorted_nodes = _np.sort(self.nodes)
@@ -628,10 +653,11 @@ class TemporalNetwork:
                 else:
                     g.add_node(new_node)
 
-                if layout:
-                    g.add_edge(prev_time_nodes[i], new_node, style="dotted")
-                else:
-                    g.add_edge(prev_time_nodes[i], new_node)
+                if memory[n] == 0 or ts - prev_ts <= memory[n]:
+                    if layout:
+                        g.add_edge(prev_time_nodes[i], new_node, style="dotted")
+                    else:
+                        g.add_edge(prev_time_nodes[i], new_node)
 
                 i += 1
                 pass
@@ -643,17 +669,47 @@ class TemporalNetwork:
                 if from_node not in g or to_node not in g:
                     raise Exception("Node does not exists.")
 
+                mid_node = None
+                if g.out_degree(from_node) > 0:
+                    from_node_pos = convert_string_to_x_y(g.node[from_node]["pos"])
+                    to_node_pos = convert_string_to_x_y(g.node[to_node]["pos"])
+
+                    # mid_node = "{}_m_{}".format(from_node, to_node)
+                    # if layout:
+                    #     g.add_node(
+                    #         mid_node,
+                    #         pos="{},{}!".format(
+                    #             (from_node_pos[0] + to_node_pos[0]) / 2,
+                    #             (from_node_pos[1] + to_node_pos[1]) / 2),
+                    #         # style="invis",
+                    #         # label="m_{}".format(g.out_degree(from_node))
+                    #         label="m"
+                    #     )
+                    # else:
+                    #     g.add_node(mid_node)
+
                 if layout:
+                    # if mid_node is not None:
+                    #     g.add_path(
+                    #         ["{}_{}".format(prev_ts, edge[0]),
+                    #         mid_node,
+                    #         "{}_{}".format(edge[2], edge[1])],
+                    #         style="solid")
+                    # else:
                     g.add_edge(
                         "{}_{}".format(prev_ts, edge[0]),
                         "{}_{}".format(edge[2], edge[1]),
-                        style="solid"
-                    )
+                        style="solid")
                 else:
+                    # if mid_node is not None:
+                    #     g.add_path(
+                    #         ["{}_{}".format(prev_ts, edge[0]),
+                    #         mid_node,
+                    #         "{}_{}".format(edge[2], edge[1])])
+                    # else:
                     g.add_edge(
                         "{}_{}".format(prev_ts, edge[0]),
-                        "{}_{}".format(edge[2], edge[1])
-                    )
+                        "{}_{}".format(edge[2], edge[1]))
                 pass
 
             del prev_time_nodes
@@ -662,6 +718,41 @@ class TemporalNetwork:
             prev_ts = ts
             pass
 
+        # Add an extra node for each node with in-deg > 1 and split in-deg and out-deg
+        # between this new node to make sure the residual capacity of all nodes is 1
+        g_copy = g.copy()
+        for in_node, in_deg in g_copy.in_degree:
+            if in_deg > 1:
+                # [g[in_edge[0]][in_edge[1]] for in_edge in g.in_edges(node)]
+                new_node = "{}$".format(in_node)
+
+                if layout:
+                    in_node_pos = convert_string_to_x_y(g.node[in_node]["pos"])
+                    # g.node[in_node]["pos"] = "{},{}!".format(
+                    #     in_node_pos[0],
+                    #     in_node_pos[1] + 0.20)
+
+                    g.add_node(
+                        new_node,
+                        # pos="{},{}!".format(in_node_pos[0], in_node_pos[1] - 0.20),
+                        pos="{},{}!".format(in_node_pos[0], in_node_pos[1]),
+                        label=in_node.split("_")[1] + "'",
+                        style="invis"
+                    )
+
+                    g.add_edge(in_node, new_node, style="invis")
+                else:
+                    g.add_node(new_node)
+
+                    g.add_edge(in_node, new_node)
+
+                for out_edge in g_copy.out_edges(in_node):
+                    g.add_edge(new_node, out_edge[1])
+
+                    g.remove_edge(out_edge[0], out_edge[1])
+                    pass
+
+        del g_copy
         return g
         pass
 
@@ -777,70 +868,157 @@ class TemporalNetwork:
         with open(filename, "w") as tex_file:
             tex_file.write(''.join(output))
 
-    def unfoldedNetworkControlMaxFlow(self, sources, layout=False):
+    def unfoldedNetworkControlMaxFlow(
+            self, sources, memory=0, layout=False,
+            force_shortest_path=False, find_all_source_to_sink_paths=True,
+            color_set=None):
         """
         Generates a dot file that can be compiled to a time-unfolded
         representation of the temporal network.
 
-        @param path: the path of the tex file to be generated.
+        @param sources: Fix
+        @param memory:  dict specify how long a node keeps information. If an integer is given
+                        it will be assigned for all nodes. Default is infinity set by -1
+        @param layout: Fix
+        @param find_all_source_to_sink_paths:
+        @param color_set: a function that gets number of required distinct colors and returns an
+                          array of colors
         """
 
-        g = self.convertUnfoldedNetworkNetworkx(layout=layout)
+        unfolded_dnx = self.convertUnfoldedNetworkNetworkx(memory=memory, layout=layout)
 
         for node in sources:
             if node not in self.nodes:
-                raise Exception("Source node does not exists.")
+                raise Exception("Source/driver node does not exists. Node: {}".format(node))
             pass
 
         source_node = "s"
 
         if layout:
-            g.add_node(source_node, pos="{},{}!".format(
+            unfolded_dnx.add_node(source_node, pos="{},{}!".format(
                 len(self.nodes) + 2, -1 * len(self.ordered_times) / 2))
         else:
-            g.add_node(source_node)
+            unfolded_dnx.add_node(source_node)
 
-        for node in g.nodes:
+        for node in unfolded_dnx.nodes:
             for source in sources:
                 if node.endswith("_{}".format(source)):
                     if layout:
-                        g.add_edge(source_node, node, style="dashed")
+                        unfolded_dnx.add_edge(source_node, node, style="dashed")
                     else:
-                        g.add_edge(source_node, node)
+                        unfolded_dnx.add_edge(source_node, node)
 
         sink_node = "t"
 
         if layout:
-            g.add_node(sink_node, pos="{},{}!".format(
+            unfolded_dnx.add_node(sink_node, pos="{},{}!".format(
                 (len(self.nodes) / 2) - 0.5, -1 * (len(self.ordered_times) + 2)))
         else:
-            g.add_node(sink_node)
+            unfolded_dnx.add_node(sink_node)
 
         for node in self.nodes:
-            g.add_edge("{}_{}".format(self.ordered_times[-1], node), sink_node)
+            unfolded_dnx.add_edge("{}_{}".format(self.ordered_times[-1], node), sink_node)
             pass
 
-        nx.set_edge_attributes(g, 1.0, "capacity")
-        flow_value, flow_dict = nx_flow.maximum_flow(
-            g, source_node, sink_node
-            # ,flow_func = nx_flow.shortest_augmenting_path
-        )
+        # for node, out_degree in unfolded_dnx.out_degree:
+        #     if node == "s":
+        #         continue
+        #
+        #     if out_degree > 1:
+        #         for split_index in range(0, out_degree - 1)
+        #         split_out_node = node
+
+        nx.set_edge_attributes(unfolded_dnx, 1.0, "capacity")
+
+        if force_shortest_path:
+            flow_value, flow_dict = nx_flow.maximum_flow(
+                unfolded_dnx, source_node, sink_node,
+                flow_func=nx_flow.shortest_augmenting_path
+            )
+        else:
+            flow_value, flow_dict = nx_flow.maximum_flow(
+                unfolded_dnx, source_node, sink_node)
+
+        for origin, flow in flow_dict["s"].items():
+            if unfolded_dnx.has_edge("s", origin) and flow == 0:
+                unfolded_dnx.remove_edge("s", origin)
 
         for from_node, to_nodes in flow_dict.items():
             for to_node, flow in to_nodes.items():
                 if flow > 0:
                     if layout:
-                        g[from_node][to_node]["color"] = "blue"
+                        # default color for an edge with flow > 0
+                        unfolded_dnx[from_node][to_node]["color"] = "#B900CA"
                         if from_node == source_node:
-                            # g[from_node][to_node]["label"] = "s>{}".format(to_node)
+                            unfolded_dnx[from_node][to_node]["label"] = "s>{}".format(to_node)
                             pass
-                        elif "style" in g[from_node][to_node]:
-                            if g[from_node][to_node]["style"] == "dotted":
-                                # g[from_node][to_node]["label"] = "m"
+                        elif "style" in unfolded_dnx[from_node][to_node]:
+                            if unfolded_dnx[from_node][to_node]["style"] == "dotted":
+                                unfolded_dnx[from_node][to_node]["label"] = "m"
                                 pass
                             else:
-                                # g[from_node][to_node]["label"] = "f>"
+                                unfolded_dnx[from_node][to_node]["label"] = "f>"
                                 pass
 
-        return g
+        control_paths = []
+
+        def build_control_paths(from_node, path):
+            if path[-1] == "t":
+                return
+
+            if path[-1] != from_node:
+                path.append(from_node)
+
+            for to_node, flow in flow_dict[from_node].items():
+                if flow == 1:
+                    if path[-1] != "t":
+                        # if to_node == "1318"
+                        path.append(to_node)
+
+                    build_control_paths(to_node, path)
+            pass
+
+        for to_node, flow in flow_dict["s"].items():
+            if flow == 1:
+                control_path = ["s"]
+                control_paths.append(control_path)
+                build_control_paths(to_node, control_path)
+
+        if layout:
+            distinct_colors = color_set(int(flow_value))
+            color_index = 0
+            for control_path in control_paths:
+                from_node = control_path[0]
+                for to_node in control_path[1:]:
+                    unfolded_dnx[from_node][to_node]["color"] = distinct_colors[color_index]
+                    from_node = to_node
+                    pass
+                color_index += 1
+            pass
+
+        # ##################### Find all source to sink paths###########
+        source_to_sink_paths = []
+
+        if find_all_source_to_sink_paths:
+            unfolded_dnx_copy = unfolded_dnx.copy()
+
+            for source_to_sink_path in nx.all_simple_paths(unfolded_dnx_copy, "s", "t"):
+                prev_node = None
+                is_independent = True
+                for node in source_to_sink_path:
+                    if prev_node is not None:
+                        if flow_dict[prev_node][node] != 1.0:
+                            is_independent = False
+                            break
+                        pass
+
+                    prev_node = node
+                    pass
+                if is_independent:
+                    source_to_sink_paths.append(source_to_sink_path)
+
+            del unfolded_dnx_copy
+            pass
+
+        return unfolded_dnx, flow_value, flow_dict, control_paths, source_to_sink_paths
         pass
