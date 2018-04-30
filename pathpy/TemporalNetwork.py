@@ -747,7 +747,12 @@ class TemporalNetwork:
                     g.add_edge(in_node, new_node)
 
                 for out_edge in g_copy.out_edges(in_node):
-                    g.add_edge(new_node, out_edge[1])
+                    if layout:
+                        if "style" in g[out_edge[0]][out_edge[1]]:
+                            g.add_edge(new_node, out_edge[1],
+                                       style=g[out_edge[0]][out_edge[1]]["style"])
+                    else:
+                        g.add_edge(new_node, out_edge[1])
 
                     g.remove_edge(out_edge[0], out_edge[1])
                     pass
