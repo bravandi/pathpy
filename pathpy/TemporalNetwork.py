@@ -670,43 +670,14 @@ class TemporalNetwork:
                     raise Exception("Node does not exists.")
 
                 mid_node = None
-                if g.out_degree(from_node) > 0:
-                    from_node_pos = convert_string_to_x_y(g.node[from_node]["pos"])
-                    to_node_pos = convert_string_to_x_y(g.node[to_node]["pos"])
-
-                    # mid_node = "{}_m_{}".format(from_node, to_node)
-                    # if layout:
-                    #     g.add_node(
-                    #         mid_node,
-                    #         pos="{},{}!".format(
-                    #             (from_node_pos[0] + to_node_pos[0]) / 2,
-                    #             (from_node_pos[1] + to_node_pos[1]) / 2),
-                    #         # style="invis",
-                    #         # label="m_{}".format(g.out_degree(from_node))
-                    #         label="m"
-                    #     )
-                    # else:
-                    #     g.add_node(mid_node)
 
                 if layout:
-                    # if mid_node is not None:
-                    #     g.add_path(
-                    #         ["{}_{}".format(prev_ts, edge[0]),
-                    #         mid_node,
-                    #         "{}_{}".format(edge[2], edge[1])],
-                    #         style="solid")
-                    # else:
                     g.add_edge(
                         "{}_{}".format(prev_ts, edge[0]),
                         "{}_{}".format(edge[2], edge[1]),
                         style="solid")
                 else:
-                    # if mid_node is not None:
-                    #     g.add_path(
-                    #         ["{}_{}".format(prev_ts, edge[0]),
-                    #         mid_node,
-                    #         "{}_{}".format(edge[2], edge[1])])
-                    # else:
+
                     g.add_edge(
                         "{}_{}".format(prev_ts, edge[0]),
                         "{}_{}".format(edge[2], edge[1]))
@@ -728,9 +699,6 @@ class TemporalNetwork:
 
                 if layout:
                     in_node_pos = convert_string_to_x_y(g.node[in_node]["pos"])
-                    # g.node[in_node]["pos"] = "{},{}!".format(
-                    #     in_node_pos[0],
-                    #     in_node_pos[1] + 0.20)
 
                     g.add_node(
                         new_node,
