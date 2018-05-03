@@ -956,14 +956,14 @@ class TemporalNetwork:
                         # default color for an edge with flow > 0
                         unfolded_dnx[from_node][to_node]["color"] = "#B900CA"
                         if from_node == source_node:
-                            unfolded_dnx[from_node][to_node]["label"] = "s>{}".format(to_node)
+                            # unfolded_dnx[from_node][to_node]["label"] = "s>{}".format(to_node)
                             pass
                         elif "style" in unfolded_dnx[from_node][to_node]:
                             if unfolded_dnx[from_node][to_node]["style"] == "dotted":
-                                unfolded_dnx[from_node][to_node]["label"] = "m"
+                                # unfolded_dnx[from_node][to_node]["label"] = "m"
                                 pass
                             else:
-                                unfolded_dnx[from_node][to_node]["label"] = "f>"
+                                # unfolded_dnx[from_node][to_node]["label"] = "f>"
                                 pass
             pass
 
