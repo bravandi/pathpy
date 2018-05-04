@@ -596,10 +596,6 @@ class TemporalNetwork:
         :return:
         """
 
-        def convert_string_to_x_y(position):
-            positions = position[:-1].split(",")
-            return float(positions[0]), float(positions[1])
-
         if memory is not dict:
             memory_int = memory
             memory = dict()
@@ -689,43 +685,6 @@ class TemporalNetwork:
             prev_ts = ts
             pass
 
-        # Add an extra node for each node with in-deg > 1 and split in-deg and out-deg
-        # between this new node to make sure the residual capacity of all nodes is 1
-        g_copy = g.copy()
-        for in_node, in_deg in g_copy.in_degree:
-            if in_deg > 1:
-                # [g[in_edge[0]][in_edge[1]] for in_edge in g.in_edges(node)]
-                new_node = "{}$".format(in_node)
-
-                if layout:
-                    in_node_pos = convert_string_to_x_y(g.node[in_node]["pos"])
-
-                    g.add_node(
-                        new_node,
-                        # pos="{},{}!".format(in_node_pos[0], in_node_pos[1] - 0.20),
-                        pos="{},{}!".format(in_node_pos[0], in_node_pos[1]),
-                        label=in_node.split("_")[1] + "'",
-                        style="invis"
-                    )
-
-                    g.add_edge(in_node, new_node, style="invis")
-                else:
-                    g.add_node(new_node)
-
-                    g.add_edge(in_node, new_node)
-
-                for out_edge in g_copy.out_edges(in_node):
-                    if layout:
-                        if "style" in g[out_edge[0]][out_edge[1]]:
-                            g.add_edge(new_node, out_edge[1],
-                                       style=g[out_edge[0]][out_edge[1]]["style"])
-                    else:
-                        g.add_edge(new_node, out_edge[1])
-
-                    g.remove_edge(out_edge[0], out_edge[1])
-                    pass
-
-        del g_copy
         return g
         pass
 
@@ -843,8 +802,8 @@ class TemporalNetwork:
 
     def unfoldedNetworkControlMaxFlow(
             self, allowed_drivers=[], memory=0, stimuli_allowed_periods=[], layout=False,
-            force_shortest_path=False, find_all_source_to_sink_paths=True,
-            color_set=None):
+            layout_include_flow_regulatory_nodes=False, force_shortest_path=False,
+            find_all_source_to_sink_paths=True, color_set=None):
         """
         Generates a dot file that can be compiled to a time-unfolded
         representation of the temporal network.
@@ -853,6 +812,7 @@ class TemporalNetwork:
         @param memory:  dict specify how long a node keeps information. If an integer is given
                         it will be assigned for all nodes. Default is infinity set by -1
         @param layout: Fix
+        @param layout_include_flow_regulatory_nodes: Fix
         @param find_all_source_to_sink_paths:
         @param color_set: a function that gets number of required distinct colors and returns an
                           array of colors
@@ -860,7 +820,7 @@ class TemporalNetwork:
 
         if len(stimuli_allowed_periods) == 0:
             # Using +1 will allow directly stimulating a node in the last timestamp
-            stimuli_allowed_periods.append((0, self.ordered_times[-1]))
+            stimuli_allowed_periods.append((0, self.ordered_times[-1] + 1))
 
         if len(allowed_drivers) == 0:
             allowed_drivers = sorted(self.nodes)
@@ -873,6 +833,51 @@ class TemporalNetwork:
             if node not in self.nodes:
                 raise Exception("Source/driver node does not exists. Node: {}".format(node))
             pass
+
+        """
+                
+        """
+        # Add an extra node for each node with in-deg > 1 and split in-deg and out-deg
+        # between this new node to make sure the residual capacity of all nodes is 1
+        g_copy = unfolded_dnx.copy()
+        for out_node, out_deg in g_copy.out_degree:
+            if out_deg > 1:
+                # [g[in_edge[0]][in_edge[1]] for in_edge in g.in_edges(node)]
+                new_node = "{}$".format(out_node)
+
+                if layout:
+                    positions = unfolded_dnx.node[out_node]["pos"][:-1].split(",")
+                    in_node_pos = (float(positions[0]), float(positions[1]))
+
+                    unfolded_dnx.add_node(
+                        new_node,
+                        pos="{},{}!".format(in_node_pos[0], in_node_pos[1] - 0.5)
+                        if layout_include_flow_regulatory_nodes else
+                        "{},{}!".format(in_node_pos[0], in_node_pos[1]),
+                        label=out_node.split("_")[1] + "'" if layout_include_flow_regulatory_nodes else "",
+                        style="" if layout_include_flow_regulatory_nodes else "invis"
+                    )
+
+                    unfolded_dnx.add_edge(
+                        out_node, new_node,
+                        style="" if layout_include_flow_regulatory_nodes else "invis"
+                    )
+                else:
+                    unfolded_dnx.add_node(new_node)
+
+                    unfolded_dnx.add_edge(out_node, new_node)
+
+                for out_edge in g_copy.out_edges(out_node):
+                    if layout:
+                        if "style" in unfolded_dnx[out_edge[0]][out_edge[1]]:
+                            unfolded_dnx.add_edge(new_node, out_edge[1],
+                                                  style=unfolded_dnx[out_edge[0]][out_edge[1]]["style"])
+                    else:
+                        unfolded_dnx.add_edge(new_node, out_edge[1])
+
+                    unfolded_dnx.remove_edge(out_edge[0], out_edge[1])
+                    pass
+        del g_copy
 
         """
         Create Source node to initial stimulating time unfolded nodes
@@ -942,9 +947,11 @@ class TemporalNetwork:
         """
         Remove in-active stimuli edges from the time-unfolded network 
         """
+
         for origin, flow in flow_dict["s"].items():
             if unfolded_dnx.has_edge("s", origin) and flow == 0:
                 unfolded_dnx.remove_edge("s", origin)
+                pass
 
         """
         Default color and labels for control edges 
