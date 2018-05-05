@@ -980,27 +980,33 @@ class TemporalNetwork:
         """
         control_paths = []
 
-        def build_control_paths(from_node, path):
-            if path[-1] == "t":
-                return
-
-            if path[-1] != from_node:
-                path.append(from_node)
-
-            for to_node, flow in flow_dict[from_node].items():
-                if flow == 1:
-                    if path[-1] != "t":
-                        # if to_node == "1318"
-                        path.append(to_node)
-
-                    build_control_paths(to_node, path)
-            pass
-
         for to_node, flow in flow_dict["s"].items():
             if flow == 1:
                 control_path = ["s"]
                 control_paths.append(control_path)
-                build_control_paths(to_node, control_path)
+
+                from_node = to_node
+
+                while True:
+                    if control_path[-1] == "t":
+                        break
+
+                    if control_path[-1] != from_node:
+                        control_path.append(from_node)
+
+                    for to_node, flow in flow_dict[from_node].items():
+                        if flow == 1:
+                            if control_path[-1] == "t":
+                                raise Exception("Can it happent? Double check!")
+
+                            else:
+                                # if to_node == "1318"
+                                control_path.append(to_node)
+                                from_node = to_node
+                                break
+
+                # build_control_paths(to_node, control_path)
+            pass
 
         if layout:
             distinct_colors = color_set(int(flow_value))
