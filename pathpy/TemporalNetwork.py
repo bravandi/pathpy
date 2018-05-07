@@ -587,7 +587,7 @@ class TemporalNetwork:
 
         return t
 
-    def convertTimeUnfoldedNetworkx(self, memory=0, layout=False):
+    def convertTimeUnfoldedNetworkx(self, memory=0, y_distance=1.5, layout=False):
         """
 
         :param memory: dict specify how long a node keeps information. If an integer is given
@@ -615,7 +615,7 @@ class TemporalNetwork:
         prev_time = 0
         prev_time_nodes = []
 
-        y_pos = 1
+        y_pos = y_distance
 
         i = 0
         for n in sorted_nodes:
@@ -623,7 +623,7 @@ class TemporalNetwork:
             prev_time_nodes.append(new_node)
 
             if layout:
-                g.add_node(new_node, pos="{},{}!".format(i, y_pos - 1), label=str(n))
+                g.add_node(new_node, pos="{},{}!".format(i, 0), label=str(n))
                 if i == 0:
                     g.node[new_node]["xlabel"] = "t=0"
             else:
@@ -681,7 +681,7 @@ class TemporalNetwork:
 
             del prev_time_nodes
             prev_time_nodes = prev_time_nodes_temp
-            y_pos += 1
+            y_pos += y_distance
             prev_ts = ts
             pass
 
@@ -803,7 +803,7 @@ class TemporalNetwork:
     def unfoldedNetworkControlMaxFlow(
             self, allowed_drivers=[], memory=0, stimuli_allowed_periods=[], layout=False,
             layout_include_flow_regulatory_nodes=False, force_shortest_path=False,
-            find_all_source_to_sink_paths=True, color_set=None):
+            find_all_source_to_sink_paths=True, color_set=None, find_max_capacity_each_source=False):
         """
         Generates a dot file that can be compiled to a time-unfolded
         representation of the temporal network.
@@ -818,16 +818,23 @@ class TemporalNetwork:
                           array of colors
         """
 
+        y_pos_distance = 1.5
+
         if len(stimuli_allowed_periods) == 0:
-            # Using +1 will allow directly stimulating a node in the last timestamp
-            stimuli_allowed_periods.append((0, self.ordered_times[-1] + 1))
+            """
+            directly stimulating nodes in the last time does not make sense because the stimulation
+            wont be carried to the next time (there is no next time).
+            """
+            stimuli_allowed_periods.append((0, self.ordered_times[-1]))
+
+        sorted_nodes = sorted(self.nodes)
 
         if len(allowed_drivers) == 0:
-            allowed_drivers = sorted(self.nodes)
+            allowed_drivers = sorted_nodes
         else:
             allowed_drivers = sorted(allowed_drivers)
 
-        unfolded_dnx = self.convertTimeUnfoldedNetworkx(memory=memory, layout=layout)
+        unfolded_dnx = self.convertTimeUnfoldedNetworkx(memory=memory, layout=layout, y_distance=y_pos_distance)
 
         for node in allowed_drivers:
             if node not in self.nodes:
@@ -835,32 +842,34 @@ class TemporalNetwork:
             pass
 
         """
-                
+        Add an extra node for each node with in-deg > 1 and split in-deg and out-deg
+        between this new node to make sure the residual capacity of all nodes is 1                
         """
-        # Add an extra node for each node with in-deg > 1 and split in-deg and out-deg
-        # between this new node to make sure the residual capacity of all nodes is 1
+
         g_copy = unfolded_dnx.copy()
         for out_node, out_deg in g_copy.out_degree:
-            if out_deg > 1:
+            # if out_deg > 1:
+            if out_deg > 0:
                 # [g[in_edge[0]][in_edge[1]] for in_edge in g.in_edges(node)]
                 new_node = "{}$".format(out_node)
 
                 if layout:
                     positions = unfolded_dnx.node[out_node]["pos"][:-1].split(",")
-                    in_node_pos = (float(positions[0]), float(positions[1]))
+                    node_positions = (float(positions[0]), float(positions[1]))
 
                     unfolded_dnx.add_node(
                         new_node,
-                        pos="{},{}!".format(in_node_pos[0], in_node_pos[1] - 0.5)
+                        pos="{},{}!".format(node_positions[0], node_positions[1] - (y_pos_distance / 2) - 0.05)
                         if layout_include_flow_regulatory_nodes else
-                        "{},{}!".format(in_node_pos[0], in_node_pos[1]),
+                        "{},{}!".format(node_positions[0], node_positions[1]),
                         label=out_node.split("_")[1] + "'" if layout_include_flow_regulatory_nodes else "",
                         style="" if layout_include_flow_regulatory_nodes else "invis"
                     )
 
                     unfolded_dnx.add_edge(
                         out_node, new_node,
-                        style="" if layout_include_flow_regulatory_nodes else "invis"
+                        style="" if layout_include_flow_regulatory_nodes else "invis",
+                        capacity=1.0
                     )
                 else:
                     unfolded_dnx.add_node(new_node)
@@ -870,14 +879,28 @@ class TemporalNetwork:
                 for out_edge in g_copy.out_edges(out_node):
                     if layout:
                         if "style" in unfolded_dnx[out_edge[0]][out_edge[1]]:
-                            unfolded_dnx.add_edge(new_node, out_edge[1],
-                                                  style=unfolded_dnx[out_edge[0]][out_edge[1]]["style"])
+                            unfolded_dnx.add_edge(
+                                new_node, out_edge[1],
+                                style=unfolded_dnx[out_edge[0]][out_edge[1]]["style"]
+
+                            )
                     else:
                         unfolded_dnx.add_edge(new_node, out_edge[1])
 
                     unfolded_dnx.remove_edge(out_edge[0], out_edge[1])
                     pass
         del g_copy
+
+        """
+        set all edges capacity to 1 to find control paths and time unfolded driver nodes
+        **
+        """
+        nx.set_edge_attributes(unfolded_dnx, 1.0, "capacity")
+        # for edge in unfolded_dnx.edges:
+        #     if "capacity" not in unfolded_dnx[edge[0]][edge[1]]:
+        #
+        #         unfolded_dnx[edge[0]][edge[1]]["capacity"] = len(self.nodes)
+        # nx.set_edge_attributes(unfolded_dnx, len(self.nodes), "capacity")
 
         """
         Create Source node to initial stimulating time unfolded nodes
@@ -889,11 +912,24 @@ class TemporalNetwork:
         if layout:
             unfolded_dnx.add_node(source_node, pos="{},{}!".format(
                 len(self.nodes) + 2, -1 * len(self.ordered_times) / 2))
+            positions = unfolded_dnx.node[source_node]["pos"][:-1].split(",")
+            node_positions = (float(positions[0]), float(positions[1]))
         else:
             unfolded_dnx.add_node(source_node)
 
+        y_val = -1
+        for node in sorted_nodes:
+            new_node = "s_{}".format(node)
+            if layout:
+                unfolded_dnx.add_node(new_node, pos="{},{}!".format(node_positions[0] - 1.5, y_val))
+                y_val += -1
+            else:
+                unfolded_dnx.add_node(new_node)
+                pass
+            unfolded_dnx.add_edge(source_node, new_node, capacity=len(self.nodes))
+
         for node in unfolded_dnx.nodes:
-            if node == source_node:
+            if node.startswith("s"):
                 continue
 
             for source in allowed_drivers:
@@ -906,11 +942,14 @@ class TemporalNetwork:
                         break
 
                 if allow_stimuli and node.endswith("_{}".format(source)):
+                    super_source_node = "{}_{}".format(source_node, source)
 
                     if layout:
-                        unfolded_dnx.add_edge(source_node, node, style="dashed")
+                        unfolded_dnx.add_edge(super_source_node, node, style="dashed")
                     else:
-                        unfolded_dnx.add_edge(source_node, node)
+                        unfolded_dnx.add_edge(super_source_node, node)
+
+                    unfolded_dnx[super_source_node][node]["capacity"] = 1.0
             pass
 
         """
@@ -921,37 +960,85 @@ class TemporalNetwork:
 
         if layout:
             unfolded_dnx.add_node(sink_node, pos="{},{}!".format(
-                (len(self.nodes) / 2) - 0.5, -1 * (len(self.ordered_times) + 2)))
+                (len(self.nodes) / 2) - 0.5, -1 * (len(self.ordered_times) + 2 + y_pos_distance)))
         else:
             unfolded_dnx.add_node(sink_node)
 
         for node in self.nodes:
-            unfolded_dnx.add_edge("{}_{}".format(self.ordered_times[-1], node), sink_node)
+            from_node = "{}_{}".format(self.ordered_times[-1], node)
+            unfolded_dnx.add_edge(from_node, sink_node)
+
+            # Sink edges capacity
+            # **
+            unfolded_dnx[from_node][sink_node]["capacity"] = 1.0
+            # unfolded_dnx[from_node][sink_node]["capacity"] = len(self.nodes)
             pass
 
+        # TODO Organize later
+        if find_max_capacity_each_source is False:
+            if force_shortest_path:
+                flow_value, flow_dict = nx_flow.maximum_flow(
+                    unfolded_dnx, source_node, sink_node,
+                    flow_func=nx_flow.shortest_augmenting_path
+                )
+            else:
+                flow_value, flow_dict = nx_flow.maximum_flow(
+                    unfolded_dnx, source_node, sink_node)
+
         """
-        set all edges capacity to 1 to find control paths and time unfolded driver nodes
+        find_max_capacity_each_source 
         """
 
-        nx.set_edge_attributes(unfolded_dnx, 1.0, "capacity")
+        if find_max_capacity_each_source:
+            print("--------Running Max Capacity Finder ---------\n"
+                  "{}\n".format(self.summary()))
 
-        if force_shortest_path:
-            flow_value, flow_dict = nx_flow.maximum_flow(
-                unfolded_dnx, source_node, sink_node,
-                flow_func=nx_flow.shortest_augmenting_path
-            )
-        else:
-            flow_value, flow_dict = nx_flow.maximum_flow(
-                unfolded_dnx, source_node, sink_node)
+            super_source_max_capacity = dict()
 
+            reverse_unfolded_dnx = unfolded_dnx.copy()
+            for edge in unfolded_dnx.edges:
+                reverse_unfolded_dnx.remove_edge(edge[0], edge[1])
+                reverse_unfolded_dnx.add_edge(edge[1], edge[0], capacity=1)
+
+            for node in self.nodes:
+                super_source_node = "{}_{}".format(source_node, node)
+                super_source_max_capacity[super_source_node] = {
+                    "flow_value": None, "flow_dict": None
+                }
+
+                flow_value_to_source, flow_dict_to_source = nx_flow.maximum_flow(
+                    reverse_unfolded_dnx, sink_node, super_source_node)
+
+                del flow_dict_to_source
+                super_source_max_capacity[super_source_node]["flow_value"] = flow_value_to_source
+                super_source_max_capacity[super_source_node]["flow_dict"] = None
+
+                print("-------------------\n"
+                      "Number of super sources left: {}\n"
+                      "For super source: {}\n"
+                      "{}".format(
+                    len(self.nodes) - len(super_source_max_capacity),
+                    super_source_node,
+                    super_source_max_capacity[super_source_node]
+                ))
+                pass
+
+            del reverse_unfolded_dnx
+            return super_source_max_capacity
+            pass
+
+        # unfolded_dnx = res
         """
         Remove in-active stimuli edges from the time-unfolded network 
         """
 
-        for origin, flow in flow_dict["s"].items():
-            if unfolded_dnx.has_edge("s", origin) and flow == 0:
-                unfolded_dnx.remove_edge("s", origin)
-                pass
+        if True:
+            for node in sorted_nodes:
+                super_source_node = "{}_{}".format(source_node, node)
+                for origin, flow in flow_dict[super_source_node].items():
+                    if unfolded_dnx.has_edge(super_source_node, origin) and flow == 0:
+                        unfolded_dnx.remove_edge(super_source_node, origin)
+                        pass
 
         """
         Default color and labels for control edges 
@@ -980,32 +1067,35 @@ class TemporalNetwork:
         """
         control_paths = []
 
-        for to_node, flow in flow_dict["s"].items():
-            if flow == 1:
-                control_path = ["s"]
-                control_paths.append(control_path)
+        for node in sorted_nodes:
+            super_source_node = "{}_{}".format(source_node, node)
 
-                from_node = to_node
+            for to_node, flow in flow_dict[super_source_node].items():
+                if flow == 1:
+                    control_path = [super_source_node]
+                    control_paths.append(control_path)
 
-                while True:
-                    if control_path[-1] == "t":
-                        break
+                    from_node = to_node
 
-                    if control_path[-1] != from_node:
-                        control_path.append(from_node)
+                    while True:
+                        if control_path[-1] == "t":
+                            break
 
-                    for to_node, flow in flow_dict[from_node].items():
-                        if flow == 1:
-                            if control_path[-1] == "t":
-                                raise Exception("Can it happent? Double check!")
+                        if control_path[-1] != from_node:
+                            control_path.append(from_node)
 
-                            else:
-                                # if to_node == "1318"
-                                control_path.append(to_node)
-                                from_node = to_node
-                                break
+                        for to_node, flow in flow_dict[from_node].items():
+                            # if flow == 1:
+                            if flow > 0:
+                                if control_path[-1] == "t":
+                                    raise Exception("Can it happent? Double check!")
 
-                # build_control_paths(to_node, control_path)
+                                else:
+                                    control_path.append(to_node)
+                                    from_node = to_node
+                                    break
+                            pass
+                pass
             pass
 
         if layout:
@@ -1055,10 +1145,17 @@ class TemporalNetwork:
             driver_nodes[node] = []
             pass
 
-        for stimuli_edge in unfolded_dnx.out_edges("s"):
-            driver_node_id_and_time = stimuli_edge[1].split("_")
+        for node in sorted_nodes:
+            super_source_node = "{}_{}".format(source_node, node)
 
-            driver_nodes[int(driver_node_id_and_time[1])].append(int(driver_node_id_and_time[0]))
+            for stimuli_edge in unfolded_dnx.out_edges(super_source_node):
+                # reverse edges
+                if stimuli_edge[1] == source_node:
+                    continue
+
+                driver_node_id_and_time = stimuli_edge[1].split("_")
+
+                driver_nodes[int(driver_node_id_and_time[1])].append(int(driver_node_id_and_time[0]))
 
         for node in allowed_drivers:
             if len(driver_nodes[node]) == 0:
