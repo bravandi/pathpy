@@ -803,7 +803,9 @@ class TemporalNetwork:
     def unfoldedNetworkControlMaxFlow(
             self, allowed_drivers=[], memory=0, stimuli_allowed_periods=[], layout=False,
             layout_include_flow_regulatory_nodes=False, force_shortest_path=False,
-            find_all_source_to_sink_paths=True, color_set=None, find_max_capacity_each_source=False):
+            find_all_source_to_sink_paths=True, color_set=None,
+            find_max_capacity_each_source=False,
+            find_max_capacity_write_result_to_file_func=None):
         """
         Generates a dot file that can be compiled to a time-unfolded
         representation of the temporal network.
@@ -1003,15 +1005,19 @@ class TemporalNetwork:
             for node in self.nodes:
                 super_source_node = "{}_{}".format(source_node, node)
                 super_source_max_capacity[super_source_node] = {
-                    "flow_value": None, "flow_dict": None
+                    "flow_value": None  # , "flow_dict": None
                 }
 
                 flow_value_to_source, flow_dict_to_source = nx_flow.maximum_flow(
                     reverse_unfolded_dnx, sink_node, super_source_node)
 
+                if find_max_capacity_write_result_to_file_func is not None:
+                    find_max_capacity_write_result_to_file_func(
+                        super_source_node, flow_value_to_source, flow_dict_to_source)
+
                 del flow_dict_to_source
+
                 super_source_max_capacity[super_source_node]["flow_value"] = flow_value_to_source
-                super_source_max_capacity[super_source_node]["flow_dict"] = None
 
                 print("-------------------\n"
                       "Number of super sources left: {}\n"
