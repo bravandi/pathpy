@@ -1097,7 +1097,6 @@ class TemporalNetwork:
             for to_node, flow in flow_dict[super_source_node].items():
                 if flow == 1:
                     control_path = [super_source_node]
-                    control_paths.append(control_path)
 
                     from_node = to_node
 
@@ -1115,10 +1114,13 @@ class TemporalNetwork:
                                     raise Exception("Can it happent? Double check!")
 
                                 else:
-                                    control_path.append(to_node)
+                                    if not from_node.endswith("$"):
+                                        control_path.append(to_node)
                                     from_node = to_node
                                     break
                             pass
+
+                    control_paths.append([n for n in control_path if not n.endswith("$")])
                 pass
 
             if source_node == "t":
@@ -1138,7 +1140,7 @@ class TemporalNetwork:
             pass
 
         """
-        Find all source to sink paths if enabled.
+        Find all source to sink paths if enabled. Can never stop.
         """
         source_to_sink_paths = []
 
