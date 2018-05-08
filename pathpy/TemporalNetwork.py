@@ -803,7 +803,7 @@ class TemporalNetwork:
     def unfoldedNetworkControlMaxFlow(
             self, allowed_drivers=[], memory=0, stimuli_allowed_periods=[], layout=False,
             layout_include_flow_regulatory_nodes=False, force_shortest_path=False,
-            find_all_source_to_sink_paths=True, color_set=None,
+            create_all_time_independent_paths=False, color_set=None,
             find_max_capacity_each_source=False,
             find_max_capacity_write_result_to_file_func=None):
         """
@@ -815,7 +815,8 @@ class TemporalNetwork:
                         it will be assigned for all nodes. Default is infinity set by -1
         @param layout: Fix
         @param layout_include_flow_regulatory_nodes: Fix
-        @param find_all_source_to_sink_paths:
+        @param create_all_time_independent_paths: Build control paths. This is useful if controlpaths statistics is
+                required. Or. to draw the graph.
         @param color_set: a function that gets number of required distinct colors and returns an
                           array of colors
         """
@@ -1002,7 +1003,8 @@ class TemporalNetwork:
                 reverse_unfolded_dnx.remove_edge(edge[0], edge[1])
                 reverse_unfolded_dnx.add_edge(edge[1], edge[0], capacity=1)
 
-            for node in self.nodes:
+            # for node in self.nodes:
+            for node in allowed_drivers:
                 super_source_node = "{}_{}".format(source_node, node)
                 super_source_max_capacity[super_source_node] = {
                     "flow_value": None  # , "flow_dict": None
@@ -1015,7 +1017,8 @@ class TemporalNetwork:
                     find_max_capacity_write_result_to_file_func(
                         super_source_node, flow_value_to_source, flow_dict_to_source)
 
-                del flow_dict_to_source
+                if layout is False:
+                    del flow_dict_to_source
 
                 super_source_max_capacity[super_source_node]["flow_value"] = flow_value_to_source
 
@@ -1029,8 +1032,17 @@ class TemporalNetwork:
                 ))
                 pass
 
-            del reverse_unfolded_dnx
-            return super_source_max_capacity
+            del unfolded_dnx
+
+            if layout is False:
+                return super_source_max_capacity
+            else:
+                unfolded_dnx  = reverse_unfolded_dnx
+                flow_dict = flow_dict_to_source
+                source_node = sink_node
+                sink_node = super_source_node
+                flow_value = flow_value_to_source
+
             pass
 
         # unfolded_dnx = res
@@ -1040,7 +1052,10 @@ class TemporalNetwork:
 
         if True:
             for node in sorted_nodes:
-                super_source_node = "{}_{}".format(source_node, node)
+                if source_node == "t":
+                    super_source_node = source_node
+                else:
+                    super_source_node = "{}_{}".format(source_node, node)
                 for origin, flow in flow_dict[super_source_node].items():
                     if unfolded_dnx.has_edge(super_source_node, origin) and flow == 0:
                         unfolded_dnx.remove_edge(super_source_node, origin)
@@ -1073,8 +1088,11 @@ class TemporalNetwork:
         """
         control_paths = []
 
-        for node in sorted_nodes:
-            super_source_node = "{}_{}".format(source_node, node)
+        for node in allowed_drivers:
+            if source_node == "t":
+                super_source_node = source_node
+            else:
+                super_source_node = "{}_{}".format(source_node, node)
 
             for to_node, flow in flow_dict[super_source_node].items():
                 if flow == 1:
@@ -1084,7 +1102,7 @@ class TemporalNetwork:
                     from_node = to_node
 
                     while True:
-                        if control_path[-1] == "t":
+                        if control_path[-1] == sink_node:
                             break
 
                         if control_path[-1] != from_node:
@@ -1093,7 +1111,7 @@ class TemporalNetwork:
                         for to_node, flow in flow_dict[from_node].items():
                             # if flow == 1:
                             if flow > 0:
-                                if control_path[-1] == "t":
+                                if control_path[-1] == sink_node:
                                     raise Exception("Can it happent? Double check!")
 
                                 else:
@@ -1102,6 +1120,9 @@ class TemporalNetwork:
                                     break
                             pass
                 pass
+
+            if source_node == "t":
+                break
             pass
 
         if layout:
@@ -1121,7 +1142,7 @@ class TemporalNetwork:
         """
         source_to_sink_paths = []
 
-        if find_all_source_to_sink_paths:
+        if create_all_time_independent_paths:
             unfolded_dnx_copy = unfolded_dnx.copy()
 
             for source_to_sink_path in nx.all_simple_paths(unfolded_dnx_copy, "s", "t"):
@@ -1146,27 +1167,31 @@ class TemporalNetwork:
         Driver nodes with respect to time
         """
 
-        driver_nodes = dict()
-        for node in allowed_drivers:
-            driver_nodes[node] = []
-            pass
+        driver_nodes = "Disabled"
 
-        for node in sorted_nodes:
-            super_source_node = "{}_{}".format(source_node, node)
+        if find_max_capacity_each_source is False:
+            driver_nodes = dict()
 
-            for stimuli_edge in unfolded_dnx.out_edges(super_source_node):
-                # reverse edges
-                if stimuli_edge[1] == source_node:
-                    continue
+            for node in allowed_drivers:
+                driver_nodes[node] = []
+                pass
 
-                driver_node_id_and_time = stimuli_edge[1].split("_")
+            for node in sorted_nodes:
+                super_source_node = "{}_{}".format(source_node, node)
 
-                driver_nodes[int(driver_node_id_and_time[1])].append(int(driver_node_id_and_time[0]))
+                for stimuli_edge in unfolded_dnx.out_edges(super_source_node):
+                    # reverse edges
+                    if stimuli_edge[1] == source_node:
+                        continue
 
-        for node in allowed_drivers:
-            if len(driver_nodes[node]) == 0:
-                del driver_nodes[node]
-            pass
+                    driver_node_id_and_time = stimuli_edge[1].split("_")
+
+                    driver_nodes[int(driver_node_id_and_time[1])].append(int(driver_node_id_and_time[0]))
+
+            for node in allowed_drivers:
+                if len(driver_nodes[node]) == 0:
+                    del driver_nodes[node]
+                pass
 
         return unfolded_dnx, flow_value, flow_dict, control_paths, source_to_sink_paths, driver_nodes
         pass
