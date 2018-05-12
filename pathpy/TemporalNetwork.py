@@ -801,8 +801,12 @@ class TemporalNetwork:
             tex_file.write(''.join(output))
 
     def unfoldedNetworkControlMaxFlow(
-            self, allowed_drivers=[], memory=0, stimuli_allowed_periods=[], layout=False,
-            layout_include_flow_regulatory_nodes=False, force_shortest_path=False,
+            self, allowed_drivers=[], memory=0, stimuli_allowed_periods=[],
+            layout=False,
+            layout_hide_flow_regulatory_nodes=False,
+            layout_hide_source_sink=False,
+            layout_hide_super_source_nodes=False,
+            force_shortest_path=False,
             create_all_time_independent_paths=False, color_set=None,
             find_max_capacity_each_source=False,
             find_max_capacity_write_result_to_file_func=None):
@@ -814,14 +818,17 @@ class TemporalNetwork:
         @param memory:  dict specify how long a node keeps information. If an integer is given
                         it will be assigned for all nodes. Default is infinity set by -1
         @param layout: Fix
-        @param layout_include_flow_regulatory_nodes: Fix
+        @param layout_hide_flow_regulatory_nodes: Fix
         @param create_all_time_independent_paths: Build control paths. This is useful if controlpaths statistics is
                 required. Or. to draw the graph.
         @param color_set: a function that gets number of required distinct colors and returns an
                           array of colors
         """
 
-        y_pos_distance = 1.5
+        if layout_hide_flow_regulatory_nodes:
+            y_pos_distance = 1
+        else:
+            y_pos_distance = 1.5
 
         if len(stimuli_allowed_periods) == 0:
             """
@@ -862,16 +869,19 @@ class TemporalNetwork:
 
                     unfolded_dnx.add_node(
                         new_node,
-                        pos="{},{}!".format(node_positions[0], node_positions[1] - (y_pos_distance / 2) - 0.05)
-                        if layout_include_flow_regulatory_nodes else
-                        "{},{}!".format(node_positions[0], node_positions[1]),
-                        label=out_node.split("_")[1] + "'" if layout_include_flow_regulatory_nodes else "",
-                        style="" if layout_include_flow_regulatory_nodes else "invis"
+                        # position the regulatory node on actual node
+                        pos="{},{}!".format(node_positions[0], node_positions[1])
+                        if layout_hide_flow_regulatory_nodes else
+                        # position the regulatory node under actual node
+                        "{},{}!".format(node_positions[0], node_positions[1] - (y_pos_distance / 2) - 0.05),
+                        #
+                        label="" if layout_hide_flow_regulatory_nodes else out_node.split("_")[1] + "'",
+                        style="invis" if layout_hide_flow_regulatory_nodes else ""
                     )
 
                     unfolded_dnx.add_edge(
                         out_node, new_node,
-                        style="" if layout_include_flow_regulatory_nodes else "invis",
+                        style="invis" if layout_hide_flow_regulatory_nodes else "",
                         capacity=1.0
                     )
                 else:
@@ -913,23 +923,40 @@ class TemporalNetwork:
         source_node = "s"
 
         if layout:
-            unfolded_dnx.add_node(source_node, pos="{},{}!".format(
-                len(self.nodes) + 2, -1 * len(self.ordered_times) / 2))
-            positions = unfolded_dnx.node[source_node]["pos"][:-1].split(",")
-            node_positions = (float(positions[0]), float(positions[1]))
+            unfolded_dnx.add_node(
+                source_node,
+                pos="" if layout_hide_source_sink else "{},{}!".format(len(self.nodes) + 2,
+                                                                       -1 * len(self.ordered_times) / 2),
+                style="invis" if layout_hide_source_sink else ""
+            )
+
+            if layout_hide_source_sink is False:
+                positions = unfolded_dnx.node[source_node]["pos"][:-1].split(",")
+
+                node_positions = (float(positions[0]), float(positions[1]))
         else:
             unfolded_dnx.add_node(source_node)
 
-        y_val = -1
+        y_val = -0.5
         for node in sorted_nodes:
             new_node = "s_{}".format(node)
             if layout:
-                unfolded_dnx.add_node(new_node, pos="{},{}!".format(node_positions[0] - 1.5, y_val))
+                unfolded_dnx.add_node(
+                    new_node,
+                    pos="" if layout_hide_super_source_nodes else "{},{}!".format(node_positions[0] - 2.0, y_val),
+                    style="invis" if layout_hide_super_source_nodes else ""
+                )
+
+                unfolded_dnx.add_edge(
+                    source_node, new_node, capacity=len(self.nodes),
+                    style="invis" if layout_hide_source_sink else ""
+                )
+
                 y_val += -1
             else:
                 unfolded_dnx.add_node(new_node)
+                unfolded_dnx.add_edge(source_node, new_node, capacity=len(self.nodes))
                 pass
-            unfolded_dnx.add_edge(source_node, new_node, capacity=len(self.nodes))
 
         for node in unfolded_dnx.nodes:
             if node.startswith("s"):
@@ -948,7 +975,10 @@ class TemporalNetwork:
                     super_source_node = "{}_{}".format(source_node, source)
 
                     if layout:
-                        unfolded_dnx.add_edge(super_source_node, node, style="dashed")
+                        unfolded_dnx.add_edge(
+                            super_source_node, node,
+                            style="invis" if layout_hide_super_source_nodes else "bold"
+                        )
                     else:
                         unfolded_dnx.add_edge(super_source_node, node)
 
@@ -962,14 +992,23 @@ class TemporalNetwork:
         sink_node = "t"
 
         if layout:
-            unfolded_dnx.add_node(sink_node, pos="{},{}!".format(
-                (len(self.nodes) / 2) - 0.5, -1 * (len(self.ordered_times) + 2 + y_pos_distance)))
+            unfolded_dnx.add_node(
+                sink_node,
+                pos="" if layout_hide_source_sink else "{},{}!".format((len(self.nodes) / 2) - 0.5, -1 * (
+                        len(self.ordered_times) + 2 + y_pos_distance)),
+                style="invis" if layout_hide_source_sink else ""
+            )
         else:
             unfolded_dnx.add_node(sink_node)
 
         for node in self.nodes:
             from_node = "{}_{}".format(self.ordered_times[-1], node)
-            unfolded_dnx.add_edge(from_node, sink_node)
+
+            if layout:
+                unfolded_dnx.add_edge(from_node, sink_node,
+                                      style="invis" if layout_hide_source_sink else "")
+            else:
+                unfolded_dnx.add_edge(from_node, sink_node)
 
             # Sink edges capacity
             # **
@@ -1037,7 +1076,7 @@ class TemporalNetwork:
             if layout is False:
                 return super_source_max_capacity
             else:
-                unfolded_dnx  = reverse_unfolded_dnx
+                unfolded_dnx = reverse_unfolded_dnx
                 flow_dict = flow_dict_to_source
                 source_node = sink_node
                 sink_node = super_source_node
@@ -1084,7 +1123,7 @@ class TemporalNetwork:
 
         """
         Build control paths using recursive function below.
-        Tgen color code the paths if layout is enabled
+        Then color code the paths if layout is enabled
         """
         control_paths = []
 
@@ -1119,8 +1158,11 @@ class TemporalNetwork:
                                     from_node = to_node
                                     break
                             pass
-
-                    control_paths.append([n for n in control_path if not n.endswith("$")])
+                    # We need real path for drawing
+                    if layout:
+                        control_paths.append([n for n in control_path])
+                    else:
+                        control_paths.append([n for n in control_path if not n.endswith("$")])
                 pass
 
             if source_node == "t":
