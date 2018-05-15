@@ -442,6 +442,22 @@ class TemporalNetwork:
         # Reorder time stamps
         self.ordered_times = sorted(self.time.keys())
 
+    def removeNode(self, n):
+        """
+
+        :param n:
+        :return:
+        """
+        edges = [e for e in self.tedges if e[0] == n or e[1] == n]
+
+        for e in edges:
+            self.removeEdge(e)
+            pass
+
+        self.nodes.remove(n)
+
+        pass
+
     def vcount(self):
         """
         Returns the number of vertices in the temporal network. 
