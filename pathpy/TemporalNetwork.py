@@ -818,6 +818,7 @@ class TemporalNetwork:
 
     def unfoldedNetworkControlMaxFlow(
             self, allowed_drivers=[], memory=0, stimuli_allowed_periods=[],
+            middle_edges_capacity=1,
             layout=False,
             layout_hide_flow_regulatory_nodes=False,
             layout_hide_source_sink=False,
@@ -825,7 +826,8 @@ class TemporalNetwork:
             force_shortest_path=False,
             create_all_time_independent_paths=False, color_set=None,
             find_max_capacity_each_source=False,
-            find_max_capacity_write_result_to_file_func=None):
+            find_max_capacity_write_result_to_file_func=None
+    ):
         """
         Generates a dot file that can be compiled to a time-unfolded
         representation of the temporal network.
@@ -924,12 +926,7 @@ class TemporalNetwork:
         set all edges capacity to 1 to find control paths and time unfolded driver nodes
         **
         """
-        nx.set_edge_attributes(unfolded_dnx, 1.0, "capacity")
-        # for edge in unfolded_dnx.edges:
-        #     if "capacity" not in unfolded_dnx[edge[0]][edge[1]]:
-        #
-        #         unfolded_dnx[edge[0]][edge[1]]["capacity"] = len(self.nodes)
-        # nx.set_edge_attributes(unfolded_dnx, len(self.nodes), "capacity")
+        nx.set_edge_attributes(unfolded_dnx, middle_edges_capacity, "capacity")
 
         """
         Create Source node to initial stimulating time unfolded nodes
@@ -1027,8 +1024,10 @@ class TemporalNetwork:
                 unfolded_dnx.add_edge(from_node, sink_node)
 
             # Sink edges capacity
-            # **
-            unfolded_dnx[from_node][sink_node]["capacity"] = 1.0
+            if node == 20:
+                unfolded_dnx[from_node][sink_node]["capacity"] = 0.0
+            else:
+                unfolded_dnx[from_node][sink_node]["capacity"] = 1.0
             # unfolded_dnx[from_node][sink_node]["capacity"] = len(self.nodes)
             pass
 
@@ -1053,10 +1052,10 @@ class TemporalNetwork:
 
             super_source_max_capacity = dict()
 
-            reverse_unfolded_dnx = unfolded_dnx.copy()
-            for edge in unfolded_dnx.edges:
-                reverse_unfolded_dnx.remove_edge(edge[0], edge[1])
-                reverse_unfolded_dnx.add_edge(edge[1], edge[0], capacity=1)
+            # reverse_unfolded_dnx = unfolded_dnx.copy()
+            # for edge in unfolded_dnx.edges:
+            #     reverse_unfolded_dnx.remove_edge(edge[0], edge[1])
+            #     reverse_unfolded_dnx.add_edge(edge[1], edge[0], capacity=1)
 
             # for node in self.nodes:
             for node in allowed_drivers:
@@ -1065,17 +1064,18 @@ class TemporalNetwork:
                     "flow_value": None  # , "flow_dict": None
                 }
 
-                flow_value_to_source, flow_dict_to_source = nx_flow.maximum_flow(
-                    reverse_unfolded_dnx, sink_node, super_source_node)
+                # reverse_unfolded_dnx, flow_dict_to_source = nx_flow.maximum_flow(unfolded_dnx_copy, sink_node, super_source_node)
+
+                flow_value_to_sink, flow_dict_to_sink = nx_flow.maximum_flow(unfolded_dnx, super_source_node, sink_node)
 
                 if find_max_capacity_write_result_to_file_func is not None:
                     find_max_capacity_write_result_to_file_func(
-                        super_source_node, flow_value_to_source, flow_dict_to_source)
+                        super_source_node, flow_value_to_sink, flow_dict_to_sink, unfolded_dnx)
 
                 if layout is False:
-                    del flow_dict_to_source
+                    del flow_dict_to_sink
 
-                super_source_max_capacity[super_source_node]["flow_value"] = flow_value_to_source
+                super_source_max_capacity[super_source_node]["flow_value"] = flow_value_to_sink
 
                 print("-------------------\n"
                       "Number of super sources left: {}\n"
@@ -1092,11 +1092,11 @@ class TemporalNetwork:
             if layout is False:
                 return super_source_max_capacity
             else:
-                unfolded_dnx = reverse_unfolded_dnx
-                flow_dict = flow_dict_to_source
+                # unfolded_dnx = reverse_unfolded_dnx
+                flow_dict = flow_dict_to_sink
                 source_node = sink_node
                 sink_node = super_source_node
-                flow_value = flow_value_to_source
+                flow_value = flow_value_to_sink
 
             pass
 
