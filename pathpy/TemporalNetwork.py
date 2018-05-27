@@ -823,6 +823,8 @@ class TemporalNetwork:
             layout_hide_flow_regulatory_nodes=False,
             layout_hide_source_sink=False,
             layout_hide_super_source_nodes=False,
+            layout_hide_inactive_stimuli=True,
+            layout_y_pos_gap=None,
             force_shortest_path=False,
             create_all_time_independent_paths=False, color_set=None,
             find_max_capacity_each_source=False,
@@ -843,17 +845,18 @@ class TemporalNetwork:
                           array of colors
         """
 
-        if layout_hide_flow_regulatory_nodes:
-            y_pos_distance = 1
-        else:
-            y_pos_distance = 1.5
+        if layout_y_pos_gap is None:
+            if layout_hide_flow_regulatory_nodes:
+                layout_y_pos_gap = 1
+            else:
+                layout_y_pos_gap = 1.25
+            pass
 
         if len(stimuli_allowed_periods) == 0:
             """
-            directly stimulating nodes in the last time does not make sense because the stimulation
-            wont be carried to the next time (there is no next time).
+            directly stimulating nodes in the last time confirms we can control a node at anytime.
             """
-            stimuli_allowed_periods.append((0, self.ordered_times[-1]))
+            stimuli_allowed_periods.append((0, self.ordered_times[-1] + 1))
 
         sorted_nodes = sorted(self.nodes)
 
@@ -862,7 +865,7 @@ class TemporalNetwork:
         else:
             allowed_drivers = sorted(allowed_drivers)
 
-        unfolded_dnx = self.convertTimeUnfoldedNetworkx(memory=memory, layout=layout, y_distance=y_pos_distance)
+        unfolded_dnx = self.convertTimeUnfoldedNetworkx(memory=memory, layout=layout, y_distance=layout_y_pos_gap)
 
         for node in allowed_drivers:
             if node not in self.nodes:
@@ -891,10 +894,13 @@ class TemporalNetwork:
                         pos="{},{}!".format(node_positions[0], node_positions[1])
                         if layout_hide_flow_regulatory_nodes else
                         # position the regulatory node under actual node
-                        "{},{}!".format(node_positions[0], node_positions[1] - (y_pos_distance / 2) - 0.05),
+                        "{},{}!".format(
+                            node_positions[0],
+                            node_positions[1] - (layout_y_pos_gap / 2) + 0.07),
                         #
                         label="" if layout_hide_flow_regulatory_nodes else out_node.split("_")[1] + "'",
-                        style="invis" if layout_hide_flow_regulatory_nodes else ""
+                        style="invis" if layout_hide_flow_regulatory_nodes else "filled",
+                        fillcolor="#a2efa2"
                     )
 
                     unfolded_dnx.add_edge(
@@ -926,7 +932,7 @@ class TemporalNetwork:
         set all edges capacity to 1 to find control paths and time unfolded driver nodes
         **
         """
-        nx.set_edge_attributes(unfolded_dnx, middle_edges_capacity, "capacity")
+        nx.set_edge_attributes(unfolded_dnx, 1.0, "capacity")
 
         """
         Create Source node to initial stimulating time unfolded nodes
@@ -934,29 +940,31 @@ class TemporalNetwork:
         """
 
         source_node = "s"
-
+        layout_source_x_pos_gap = 1
         if layout:
+            node_positions = (
+                len(self.nodes) + layout_source_x_pos_gap,  # x position
+                -1 * len(self.ordered_times) / 2)  # y position
+
             unfolded_dnx.add_node(
                 source_node,
-                pos="" if layout_hide_source_sink else "{},{}!".format(len(self.nodes) + 2,
-                                                                       -1 * len(self.ordered_times) / 2),
+                pos="" if layout_hide_source_sink else
+                "{},{}!".format(node_positions[0], node_positions[1]),
+                #
                 style="invis" if layout_hide_source_sink else ""
             )
-
-            if layout_hide_source_sink is False:
-                positions = unfolded_dnx.node[source_node]["pos"][:-1].split(",")
-
-                node_positions = (float(positions[0]), float(positions[1]))
         else:
             unfolded_dnx.add_node(source_node)
 
-        y_val = -0.5
+        y_val = -0.08 * len(self.ordered_times)
         for node in sorted_nodes:
             new_node = "s_{}".format(node)
             if layout:
                 unfolded_dnx.add_node(
                     new_node,
-                    pos="" if layout_hide_super_source_nodes else "{},{}!".format(node_positions[0] - 2.0, y_val),
+                    pos="" if layout_hide_super_source_nodes else
+                    "{},{}!".format(node_positions[0] - layout_source_x_pos_gap, y_val),
+                    #
                     style="invis" if layout_hide_super_source_nodes else ""
                 )
 
@@ -965,7 +973,7 @@ class TemporalNetwork:
                     style="invis" if layout_hide_source_sink else ""
                 )
 
-                y_val += -1
+                y_val += -0.75
             else:
                 unfolded_dnx.add_node(new_node)
                 unfolded_dnx.add_edge(source_node, new_node, capacity=len(self.nodes))
@@ -990,7 +998,13 @@ class TemporalNetwork:
                     if layout:
                         unfolded_dnx.add_edge(
                             super_source_node, node,
-                            style="invis" if layout_hide_super_source_nodes else "bold"
+                            # ** style super nodes to columns
+                            # style="invis" if layout_hide_super_source_nodes else "bold"
+                            style="invis" if layout_hide_super_source_nodes else "dashed",
+                            # color="#9ACEEB",
+                            arrowsize=0.60,
+                            penwidth=0.75,
+                            arrowhead="vee"
                         )
                     else:
                         unfolded_dnx.add_edge(super_source_node, node)
@@ -1003,12 +1017,16 @@ class TemporalNetwork:
         """
 
         sink_node = "t"
+        layout_sink_y_gap = 0.0
 
         if layout:
             unfolded_dnx.add_node(
                 sink_node,
-                pos="" if layout_hide_source_sink else "{},{}!".format((len(self.nodes) / 2) - 0.5, -1 * (
-                        len(self.ordered_times) + 2 + y_pos_distance)),
+                pos="" if layout_hide_source_sink else
+                "{},{}!".format(
+                    (len(self.nodes) / 2) - 0.5,
+                    -1 * (len(self.ordered_times) + layout_sink_y_gap + layout_y_pos_gap)),
+                #
                 style="invis" if layout_hide_source_sink else ""
             )
         else:
@@ -1024,10 +1042,8 @@ class TemporalNetwork:
                 unfolded_dnx.add_edge(from_node, sink_node)
 
             # Sink edges capacity
-            if node == 20:
-                unfolded_dnx[from_node][sink_node]["capacity"] = 0.0
-            else:
-                unfolded_dnx[from_node][sink_node]["capacity"] = 1.0
+            # **
+            unfolded_dnx[from_node][sink_node]["capacity"] = 1.0
             # unfolded_dnx[from_node][sink_node]["capacity"] = len(self.nodes)
             pass
 
@@ -1105,7 +1121,7 @@ class TemporalNetwork:
         Remove in-active stimuli edges from the time-unfolded network 
         """
 
-        if True:
+        if layout_hide_inactive_stimuli:
             for node in sorted_nodes:
                 if source_node == "t":
                     super_source_node = source_node
