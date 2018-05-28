@@ -603,7 +603,7 @@ class TemporalNetwork:
 
         return t
 
-    def convertTimeUnfoldedNetworkx(self, memory=0, y_distance=1.5, layout=False, layout_memor_edge_style=""):
+    def convertTimeUnfoldedNetworkx(self, memory=0, y_distance=1.5, layout=False, layout_memory_edge_style=""):
         """
 
         :param memory: dict specify how long a node keeps information. If an integer is given
@@ -667,7 +667,7 @@ class TemporalNetwork:
 
                 if memory[n] == 0 or ts - prev_ts <= memory[n]:
                     if layout:
-                        g.add_edge(prev_time_nodes[i], new_node, style=layout_memor_edge_style)
+                        g.add_edge(prev_time_nodes[i], new_node, style=layout_memory_edge_style)
                     else:
                         g.add_edge(prev_time_nodes[i], new_node)
 
@@ -825,7 +825,7 @@ class TemporalNetwork:
             layout_hide_super_source_nodes=False,
             layout_hide_inactive_stimuli=True,
             layout_y_pos_gap=None,
-            layout_memor_edge_style="",
+            layout_memory_edge_style="",
             force_shortest_path=False,
             create_all_time_independent_paths=False, color_set=None,
             find_max_capacity_each_source=False,
@@ -868,7 +868,7 @@ class TemporalNetwork:
 
         unfolded_dnx = self.convertTimeUnfoldedNetworkx(
             memory=memory, y_distance=layout_y_pos_gap,
-            layout=layout, layout_memor_edge_style=layout_memor_edge_style)
+            layout=layout, layout_memory_edge_style=layout_memory_edge_style)
 
         for node in allowed_drivers:
             if node not in self.nodes:
