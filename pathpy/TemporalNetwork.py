@@ -603,7 +603,7 @@ class TemporalNetwork:
 
         return t
 
-    def convertTimeUnfoldedNetworkx(self, memory=0, y_distance=1.5, layout=False):
+    def convertTimeUnfoldedNetworkx(self, memory=0, y_distance=1.5, layout=False, layout_memor_edge_style=""):
         """
 
         :param memory: dict specify how long a node keeps information. If an integer is given
@@ -667,7 +667,7 @@ class TemporalNetwork:
 
                 if memory[n] == 0 or ts - prev_ts <= memory[n]:
                     if layout:
-                        g.add_edge(prev_time_nodes[i], new_node, style="dotted")
+                        g.add_edge(prev_time_nodes[i], new_node, style=layout_memor_edge_style)
                     else:
                         g.add_edge(prev_time_nodes[i], new_node)
 
@@ -825,6 +825,7 @@ class TemporalNetwork:
             layout_hide_super_source_nodes=False,
             layout_hide_inactive_stimuli=True,
             layout_y_pos_gap=None,
+            layout_memor_edge_style="",
             force_shortest_path=False,
             create_all_time_independent_paths=False, color_set=None,
             find_max_capacity_each_source=False,
@@ -865,7 +866,9 @@ class TemporalNetwork:
         else:
             allowed_drivers = sorted(allowed_drivers)
 
-        unfolded_dnx = self.convertTimeUnfoldedNetworkx(memory=memory, layout=layout, y_distance=layout_y_pos_gap)
+        unfolded_dnx = self.convertTimeUnfoldedNetworkx(
+            memory=memory, y_distance=layout_y_pos_gap,
+            layout=layout, layout_memor_edge_style=layout_memor_edge_style)
 
         for node in allowed_drivers:
             if node not in self.nodes:
@@ -999,7 +1002,6 @@ class TemporalNetwork:
                         unfolded_dnx.add_edge(
                             super_source_node, node,
                             # ** style super nodes to columns
-                            # style="invis" if layout_hide_super_source_nodes else "bold"
                             style="invis" if layout_hide_super_source_nodes else "dashed",
                             # color="#9ACEEB",
                             arrowsize=0.60,
@@ -1141,16 +1143,16 @@ class TemporalNetwork:
                     if flow > 0:
                         # default color for an edge with flow > 0
                         unfolded_dnx[from_node][to_node]["color"] = "#B900CA"
-                        if from_node == source_node:
-                            # unfolded_dnx[from_node][to_node]["label"] = "s>{}".format(to_node)
-                            pass
-                        elif "style" in unfolded_dnx[from_node][to_node]:
-                            if unfolded_dnx[from_node][to_node]["style"] == "dotted":
-                                # unfolded_dnx[from_node][to_node]["label"] = "m"
-                                pass
-                            else:
-                                # unfolded_dnx[from_node][to_node]["label"] = "f>"
-                                pass
+                        # if from_node == source_node:
+                        #     # unfolded_dnx[from_node][to_node]["label"] = "s>{}".format(to_node)
+                        #     pass
+                        # elif "style" in unfolded_dnx[from_node][to_node]:
+                        #     if unfolded_dnx[from_node][to_node]["style"] == "dotted":
+                        #         # unfolded_dnx[from_node][to_node]["label"] = "m"
+                        #         pass
+                        #     else:
+                        #         # unfolded_dnx[from_node][to_node]["label"] = "f>"
+                        #         pass
             pass
 
         """
