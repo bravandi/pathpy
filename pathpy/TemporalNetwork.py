@@ -641,7 +641,8 @@ class TemporalNetwork:
             if layout:
                 g.add_node(new_node, pos="{},{}!".format(i, 0), label=str(n))
                 if i == 0:
-                    g.node[new_node]["xlabel"] = "t=0"
+                    # g.node[new_node]["xlabel"] = "t=0"
+                    pass
             else:
                 g.add_node(new_node)
 
