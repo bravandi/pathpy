@@ -1083,9 +1083,13 @@ class TemporalNetwork:
                     "flow_value": None  # , "flow_dict": None
                 }
 
-                # reverse_unfolded_dnx, flow_dict_to_source = nx_flow.maximum_flow(unfolded_dnx_copy, sink_node, super_source_node)
-
-                flow_value_to_sink, flow_dict_to_sink = nx_flow.maximum_flow(unfolded_dnx, super_source_node, sink_node)
+                if force_shortest_path:
+                    flow_value_to_sink, flow_dict_to_sink = nx_flow.maximum_flow(
+                        unfolded_dnx, super_source_node, sink_node,
+                        flow_func=nx_flow.shortest_augmenting_path)
+                else:
+                    flow_value_to_sink, flow_dict_to_sink = nx_flow.maximum_flow(
+                        unfolded_dnx, super_source_node, sink_node)
 
                 if find_max_capacity_write_result_to_file_func is not None:
                     find_max_capacity_write_result_to_file_func(
