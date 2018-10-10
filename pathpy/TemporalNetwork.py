@@ -18,7 +18,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
     Contact the developer:
-    
+
     E-mail: ischoltes@ethz.ch
     Web:    http://www.ingoscholtes.net
 """
@@ -39,17 +39,17 @@ import networkx.algorithms.flow as nx_flow
 
 class TemporalNetwork:
     """ This class represents a sequence of time-stamped edges.
-       Instances of this class can be used to generate path statistics 
+       Instances of this class can be used to generate path statistics
        based on the time-respecting paths resulting from a given maximum
        time difference between consecutive time-stamped edges.
     """
 
     def __init__(self, tedges=None):
         """
-        Constructor that generates a temporal network instance. 
-        
-        @param tedges: an optional list of (possibly unordered time-stamped) links 
-            from which to construct a temporal network instance. For the default value None        
+        Constructor that generates a temporal network instance.
+
+        @param tedges: an optional list of (possibly unordered time-stamped) links
+            from which to construct a temporal network instance. For the default value None
             an empty temporal network will be created.
         """
 
@@ -65,14 +65,14 @@ class TemporalNetwork:
         ## A dictionary storing all time-stamped links, indexed by time and target node
         self.targets = _co.defaultdict(lambda: dict())
 
-        ## A dictionary storing all time-stamped links, indexed by time and source node 
+        ## A dictionary storing all time-stamped links, indexed by time and source node
         self.sources = _co.defaultdict(lambda: dict())
 
         ## A dictionary storing time stamps at which links (v,*;t) originate from node v
         self.activities = _co.defaultdict(lambda: list())
 
         ## A dictionary storing sets of time stamps at which links (v,*;t) originate from node v
-        ## Note that the insertion into a set is much faster than repeatedly checking whether 
+        ## Note that the insertion into a set is much faster than repeatedly checking whether
         ## an element already exists in a list!
         self.activities_sets = _co.defaultdict(lambda: set())
 
@@ -105,23 +105,23 @@ class TemporalNetwork:
 
     @staticmethod
     def readFile(filename, sep=',', timestampformat="%Y-%m-%d %H:%M", maxlines=_sys.maxsize):
-        """ Reads time-stamped links from a file and returns a new instance 
-            of the class TemporalNetwork. The file is assumed to have a header 
+        """ Reads time-stamped links from a file and returns a new instance
+            of the class TemporalNetwork. The file is assumed to have a header
 
-                source target time 
+                source target time
 
-            where columns can be in arbitrary order and separated by arbitrary characters. 
+            where columns can be in arbitrary order and separated by arbitrary characters.
             Each time-stamped link must occur in a separate line and links are assumed to be
             directed.
-             
-            The time column can be omitted and in this case all links are assumed to occur 
-            in consecutive time stamps (that have a distance of one). Time stamps can be simple 
-            integers, or strings to be converted to UNIX time stamps via a custom timestamp format. 
-            For this, the python function datetime.strptime will be used. 
 
-            @param sep: the character that separates columns 
+            The time column can be omitted and in this case all links are assumed to occur
+            in consecutive time stamps (that have a distance of one). Time stamps can be simple
+            integers, or strings to be converted to UNIX time stamps via a custom timestamp format.
+            For this, the python function datetime.strptime will be used.
+
+            @param sep: the character that separates columns
             @param filename: path of the file to read from
-            @param timestampformat: used to convert string timestamps to UNIX timestamps. This parameter is 
+            @param timestampformat: used to convert string timestamps to UNIX timestamps. This parameter is
                 ignored, if the timestamps are digit types (like a simple int).
             @param maxlines: limit reading of file to certain number of lines, default sys.maxsize
 
@@ -164,7 +164,7 @@ class TemporalNetwork:
                 try:
                     if time_ix >= 0:
                         timestamp = fields[time_ix]
-                        # if the timestamp is a number, we use this 
+                        # if the timestamp is a number, we use this
                         if timestamp.isdigit():
                             t = int(timestamp)
                         else:  # if it is a string, we use the timestamp format to convert it to a UNIX timestamp
@@ -188,10 +188,10 @@ class TemporalNetwork:
         return TemporalNetwork(tedges=tedges)
 
     def filterEdges(self, edge_filter):
-        """Filter time-stamped edges according to a given filter expression. 
+        """Filter time-stamped edges according to a given filter expression.
 
-        @param edge_filter: an arbitrary filter function of the form filter_func(v, w, time) that 
-            returns True for time-stamped edges that shall pass the filter, and False for all edges that 
+        @param edge_filter: an arbitrary filter function of the form filter_func(v, w, time) that
+            returns True for time-stamped edges that shall pass the filter, and False for all edges that
             shall be filtered out.
         """
 
@@ -382,9 +382,9 @@ class TemporalNetwork:
             self.nodes.append(new_node)
 
     def addEdge(self, source, target, ts):
-        """Adds a directed time-stamped edge (source,target;time) to the temporal network. To add an undirected 
+        """Adds a directed time-stamped edge (source,target;time) to the temporal network. To add an undirected
             time-stamped link (u,v;t) at time t, please call addEdge(u,v;t) and addEdge(v,u;t).
-        
+
         @param source: name of the source node of a directed, time-stamped link
         @param target: name of the target node of a directed, time-stamped link
         @param ts: (integer) time-stamp of the time-stamped link
@@ -460,8 +460,8 @@ class TemporalNetwork:
 
     def vcount(self):
         """
-        Returns the number of vertices in the temporal network. 
-        This number corresponds to the number of nodes in the (first-order) 
+        Returns the number of vertices in the temporal network.
+        This number corresponds to the number of nodes in the (first-order)
         time-aggregated network.
         """
 
@@ -485,7 +485,7 @@ class TemporalNetwork:
 
     def getInterEventTimes(self):
         """
-        Returns an array containing all time differences between any 
+        Returns an array containing all time differences between any
         two consecutive time-stamped links (involving any node)
         """
 
@@ -496,7 +496,7 @@ class TemporalNetwork:
 
     def getInterPathTimes(self):
         """
-        Returns a dictionary which, for each node v, contains all time differences 
+        Returns a dictionary which, for each node v, contains all time differences
         between any time-stamped link (*,v;t) and the next link (v,*;t') (t'>t)
         in the temporal network
         """
@@ -540,7 +540,7 @@ class TemporalNetwork:
 
     def __str__(self):
         """
-        Returns the default string representation of 
+        Returns the default string representation of
         this temporal network instance.
         """
         return self.summary()
@@ -563,12 +563,12 @@ class TemporalNetwork:
     def ShuffleEdges(self, l=0, with_replacement=False):
         """
         Generates a shuffled version of the temporal network in which edge statistics (i.e.
-        the frequencies of time-stamped edges) are preserved, while all order correlations are 
+        the frequencies of time-stamped edges) are preserved, while all order correlations are
         destroyed. The shuffling procedure randomly reshuffles the time-stamps of links.
-        
+
         @param l: the length of the sequence to be generated (i.e. the number of time-stamped links.
-            For the default value l=0, the length of the generated shuffled temporal network will be 
-            equal to that of the original temporal network. 
+            For the default value l=0, the length of the generated shuffled temporal network will be
+            equal to that of the original temporal network.
         @param with_replacement: Whether or not the sampling should be with replacement (default False)
         """
 
@@ -707,7 +707,7 @@ class TemporalNetwork:
 
     def exportUnfoldedNetworkLatex(self, filename):
         """
-        Generates a tex file that can be compiled to a time-unfolded 
+        Generates a tex file that can be compiled to a time-unfolded
         representation of the temporal network.
 
         @param filename: the name of the tex file to be generated.
@@ -819,6 +819,7 @@ class TemporalNetwork:
 
     def unfoldedNetworkControlMaxFlow(
             self, allowed_drivers=[], memory=0, stimuli_allowed_periods=[],
+            time_unfolded_regulated_nx=None,
             middle_edges_capacity=1,
             layout=False,
             layout_hide_flow_regulatory_nodes=False,
@@ -859,6 +860,7 @@ class TemporalNetwork:
             directly stimulating nodes in the last time confirms we can control a node at anytime.
             """
             stimuli_allowed_periods.append((0, self.ordered_times[-1] + 1))
+            pass
 
         sorted_nodes = sorted(self.nodes)
 
@@ -866,200 +868,261 @@ class TemporalNetwork:
             allowed_drivers = sorted_nodes
         else:
             allowed_drivers = sorted(allowed_drivers)
-
-        unfolded_dnx = self.convertTimeUnfoldedNetworkx(
-            memory=memory, y_distance=layout_y_pos_gap,
-            layout=layout, layout_memory_edge_style=layout_memory_edge_style)
+            pass
 
         for node in allowed_drivers:
             if node not in self.nodes:
                 raise Exception("Source/driver node does not exists. Node: {}".format(node))
             pass
 
-        """
-        Add an extra node for each node with in-deg > 1 and split in-deg and out-deg
-        between this new node to make sure the residual capacity of all nodes is 1                
-        """
-
-        g_copy = unfolded_dnx.copy()
-        for out_node, out_deg in g_copy.out_degree:
-            # if out_deg > 1:
-            if out_deg > 0:
-                # [g[in_edge[0]][in_edge[1]] for in_edge in g.in_edges(node)]
-                new_node = "{}$".format(out_node)
-
-                if layout:
-                    positions = unfolded_dnx.node[out_node]["pos"][:-1].split(",")
-                    node_positions = (float(positions[0]), float(positions[1]))
-
-                    unfolded_dnx.add_node(
-                        new_node,
-                        # position the regulatory node on actual node
-                        pos="{},{}!".format(node_positions[0], node_positions[1])
-                        if layout_hide_flow_regulatory_nodes else
-                        # position the regulatory node under actual node
-                        "{},{}!".format(
-                            node_positions[0],
-                            node_positions[1] - (layout_y_pos_gap / 2) + 0.07),
-                        #
-                        label="" if layout_hide_flow_regulatory_nodes else out_node.split("_")[1] + "'",
-                        style="invis" if layout_hide_flow_regulatory_nodes else "filled",
-                        fillcolor="#a2efa2"
-                    )
-
-                    unfolded_dnx.add_edge(
-                        out_node, new_node,
-                        style="invis" if layout_hide_flow_regulatory_nodes else "",
-                        capacity=1.0
-                    )
-                else:
-                    unfolded_dnx.add_node(new_node)
-
-                    unfolded_dnx.add_edge(out_node, new_node)
-
-                for out_edge in g_copy.out_edges(out_node):
-                    if layout:
-                        if "style" in unfolded_dnx[out_edge[0]][out_edge[1]]:
-                            unfolded_dnx.add_edge(
-                                new_node, out_edge[1],
-                                style=unfolded_dnx[out_edge[0]][out_edge[1]]["style"]
-
-                            )
-                    else:
-                        unfolded_dnx.add_edge(new_node, out_edge[1])
-
-                    unfolded_dnx.remove_edge(out_edge[0], out_edge[1])
-                    pass
-        del g_copy
-
-        """
-        set all edges capacity to 1 to find control paths and time unfolded driver nodes
-        **
-        """
-        nx.set_edge_attributes(unfolded_dnx, 1.0, "capacity")
-
-        """
-        Create Source node to initial stimulating time unfolded nodes
-        within the Stimuli Allowed Period 
-        """
-
         source_node = "s"
-        layout_source_x_pos_gap = 1
-        if layout:
-            node_positions = (
-                len(self.nodes) + layout_source_x_pos_gap,  # x position
-                -1 * len(self.ordered_times) / 2)  # y position
+        sink_node = "t"
 
-            unfolded_dnx.add_node(
-                source_node,
-                pos="" if layout_hide_source_sink else
-                "{},{}!".format(node_positions[0], node_positions[1]),
-                #
-                style="invis" if layout_hide_source_sink else ""
-            )
-        else:
-            unfolded_dnx.add_node(source_node)
+        """
+        need to create the respective time-unfloaded network
+        """
+        if time_unfolded_regulated_nx is None:
+            """
+            Convert to time unfloded network
+            """
 
-        y_val = -0.08 * len(self.ordered_times)
-        for node in sorted_nodes:
-            new_node = "s_{}".format(node)
-            if layout:
-                unfolded_dnx.add_node(
-                    new_node,
-                    pos="" if layout_hide_super_source_nodes else
-                    "{},{}!".format(node_positions[0] - layout_source_x_pos_gap, y_val),
-                    #
-                    style="invis" if layout_hide_super_source_nodes else ""
-                )
+            time_unfolded_regulated_nx = self.convertTimeUnfoldedNetworkx(
+                memory=memory, y_distance=layout_y_pos_gap,
+                layout=layout, layout_memory_edge_style=layout_memory_edge_style)
 
-                unfolded_dnx.add_edge(
-                    source_node, new_node, capacity=len(self.nodes),
-                    style="invis" if layout_hide_source_sink else ""
-                )
+            """
+            Add an extra node for each node with in-deg > 1 and split in-deg and out-deg
+            between this new node to make sure the residual capacity of all nodes is 1                
+            """
 
-                y_val += -0.75
-            else:
-                unfolded_dnx.add_node(new_node)
-                unfolded_dnx.add_edge(source_node, new_node, capacity=len(self.nodes))
-                pass
-
-        for node in unfolded_dnx.nodes:
-            if node.startswith("s"):
-                continue
-
-            for source in allowed_drivers:
-                node_ts = int(node.split("_")[0])
-                allow_stimuli = False
-
-                for stimuli_allowed_period in stimuli_allowed_periods:
-                    if stimuli_allowed_period[0] <= node_ts < stimuli_allowed_period[1]:
-                        allow_stimuli = True
-                        break
-
-                if allow_stimuli and node.endswith("_{}".format(source)):
-                    super_source_node = "{}_{}".format(source_node, source)
+            g_copy = time_unfolded_regulated_nx.copy()
+            for out_node, out_deg in g_copy.out_degree:
+                # if out_deg > 1:
+                if out_deg > 0:
+                    # [g[in_edge[0]][in_edge[1]] for in_edge in g.in_edges(node)]
+                    super_source_node = "{}$".format(out_node)
 
                     if layout:
-                        unfolded_dnx.add_edge(
-                            super_source_node, node,
-                            # ** style super nodes to columns
-                            style="invis" if layout_hide_super_source_nodes else "dashed",
-                            # color="#9ACEEB",
-                            arrowsize=0.60,
-                            penwidth=0.75,
-                            arrowhead="vee"
+                        positions = time_unfolded_regulated_nx.node[out_node]["pos"][:-1].split(",")
+                        node_positions = (float(positions[0]), float(positions[1]))
+
+                        time_unfolded_regulated_nx.add_node(
+                            super_source_node,
+                            # position the regulatory node on actual node
+                            pos="{},{}!".format(node_positions[0], node_positions[1])
+                            if layout_hide_flow_regulatory_nodes else
+                            # position the regulatory node under actual node
+                            "{},{}!".format(
+                                node_positions[0],
+                                node_positions[1] - (layout_y_pos_gap / 2) + 0.07),
+                            #
+                            label="" if layout_hide_flow_regulatory_nodes else out_node.split("_")[1] + "'",
+                            style="invis" if layout_hide_flow_regulatory_nodes else "filled",
+                            fillcolor="#a2efa2"
+                        )
+
+                        time_unfolded_regulated_nx.add_edge(
+                            out_node, super_source_node,
+                            style="invis" if layout_hide_flow_regulatory_nodes else "",
+                            capacity=1.0
                         )
                     else:
-                        unfolded_dnx.add_edge(super_source_node, node)
+                        time_unfolded_regulated_nx.add_node(super_source_node)
 
-                    unfolded_dnx[super_source_node][node]["capacity"] = 1.0
-            pass
+                        time_unfolded_regulated_nx.add_edge(out_node, super_source_node)
 
-        """
-        ############# Create sink node and edges
-        """
+                    for out_edge in g_copy.out_edges(out_node):
+                        if layout:
+                            if "style" in time_unfolded_regulated_nx[out_edge[0]][out_edge[1]]:
+                                time_unfolded_regulated_nx.add_edge(
+                                    super_source_node, out_edge[1],
+                                    style=time_unfolded_regulated_nx[out_edge[0]][out_edge[1]]["style"]
 
-        sink_node = "t"
-        layout_sink_y_gap = 0.0
+                                )
+                        else:
+                            time_unfolded_regulated_nx.add_edge(super_source_node, out_edge[1])
 
-        if layout:
-            unfolded_dnx.add_node(
-                sink_node,
-                pos="" if layout_hide_source_sink else
-                "{},{}!".format(
-                    (len(self.nodes) / 2) - 0.5,
-                    -1 * (len(self.ordered_times) + layout_sink_y_gap + layout_y_pos_gap)),
-                #
-                style="invis" if layout_hide_source_sink else ""
-            )
-        else:
-            unfolded_dnx.add_node(sink_node)
+                        time_unfolded_regulated_nx.remove_edge(out_edge[0], out_edge[1])
+                        pass
+            del g_copy
 
-        for node in self.nodes:
-            from_node = "{}_{}".format(self.ordered_times[-1], node)
+            """
+            set all edges capacity to 1 to find control paths and time unfolded driver nodes
+            **
+            """
+            nx.set_edge_attributes(time_unfolded_regulated_nx, 1.0, "capacity")
+
+            """
+            Create Source node to initial stimulating time unfolded nodes
+            within the Stimuli Allowed Period 
+            """
+
+            # source_node = "s"
+            layout_source_x_pos_gap = 1
+            if layout:
+                node_positions = (
+                    len(self.nodes) + layout_source_x_pos_gap,  # x position
+                    -1 * len(self.ordered_times) / 2)  # y position
+
+                time_unfolded_regulated_nx.add_node(
+                    source_node,
+                    pos="" if layout_hide_source_sink else
+                    "{},{}!".format(node_positions[0], node_positions[1]),
+                    #
+                    style="invis" if layout_hide_source_sink else ""
+                )
+            else:
+                time_unfolded_regulated_nx.add_node(source_node)
+
+            y_val = -0.08 * len(self.ordered_times)
+            for node in sorted_nodes:
+                super_source_node = "s_{}".format(node)
+                if layout:
+                    time_unfolded_regulated_nx.add_node(
+                        super_source_node,
+                        pos="" if layout_hide_super_source_nodes else
+                        "{},{}!".format(node_positions[0] - layout_source_x_pos_gap, y_val),
+                        #
+                        style="invis" if layout_hide_super_source_nodes else ""
+                    )
+
+                    time_unfolded_regulated_nx.add_edge(
+                        source_node, super_source_node, capacity=len(self.nodes),
+                        style="invis" if layout_hide_source_sink else ""
+                    )
+
+                    y_val += -0.75
+                else:
+                    time_unfolded_regulated_nx.add_node(super_source_node)
+                    time_unfolded_regulated_nx.add_edge(source_node, super_source_node, capacity=len(self.nodes))
+                    pass
+
+            """
+            ############# Create sink node and edges
+            """
+
+            # sink_node = "t"
+            layout_sink_y_gap = 0.0
 
             if layout:
-                unfolded_dnx.add_edge(from_node, sink_node,
-                                      style="invis" if layout_hide_source_sink else "")
+                time_unfolded_regulated_nx.add_node(
+                    sink_node,
+                    pos="" if layout_hide_source_sink else
+                    "{},{}!".format(
+                        (len(self.nodes) / 2) - 0.5,
+                        -1 * (len(self.ordered_times) + layout_sink_y_gap + layout_y_pos_gap)),
+                    #
+                    style="invis" if layout_hide_source_sink else ""
+                )
             else:
-                unfolded_dnx.add_edge(from_node, sink_node)
+                time_unfolded_regulated_nx.add_node(sink_node)
 
-            # Sink edges capacity
-            # **
-            unfolded_dnx[from_node][sink_node]["capacity"] = 1.0
-            # unfolded_dnx[from_node][sink_node]["capacity"] = len(self.nodes)
+            """
+            Connect deadline layer to target node
+            """
+
+            for node in self.nodes:
+                from_node = "{}_{}".format(self.ordered_times[-1], node)
+
+                if layout:
+                    time_unfolded_regulated_nx.add_edge(from_node, sink_node,
+                                                        style="invis" if layout_hide_source_sink else "")
+                else:
+                    time_unfolded_regulated_nx.add_edge(from_node, sink_node)
+
+                # Sink edges capacity
+                # **
+                time_unfolded_regulated_nx[from_node][sink_node]["capacity"] = 1.0
+                # unfolded_dnx[from_node][sink_node]["capacity"] = len(self.nodes)
+                pass
+
+            """
+            END Creating time-unfolded network with: 
+            a) regulatory nodes, b) super source nodes, c) sink node, and 
+            d) edges from deadline layer to the sink node 
+            """
+            pass
+        else:
+            """
+            the time-unfolded network is given so make sure its super source nodes has no out-edges
+            """
+            remove_edges = []
+
+            for node in self.nodes:
+                for edge_from_super_node in time_unfolded_regulated_nx.out_edges("s_{}".format(node)):
+                    remove_edges.append(edge_from_super_node)
+                    pass
+
+            for edge_from_super_node in remove_edges:
+                time_unfolded_regulated_nx.remove_edge(edge_from_super_node[0], edge_from_super_node[1])
+                pass
+
+            del remove_edges
             pass
 
-        # TODO Organize later
+        """
+        Connect the Super Source nodes to driver nodes
+        """
+        for driver_node in allowed_drivers:
+            super_source_node = "s_{}".format(driver_node)
+
+            for observation_time in self.ordered_times:
+                for stimuli_allowed_period in stimuli_allowed_periods:
+                    if stimuli_allowed_period[0] <= observation_time < stimuli_allowed_period[1]:
+                        driver_node_at_layer = "{}_{}".format(observation_time, driver_node)
+
+                        time_unfolded_regulated_nx.add_edge(super_source_node, driver_node_at_layer)
+
+                        time_unfolded_regulated_nx[super_source_node][driver_node_at_layer]["capacity"] = 1.0
+                        break
+                pass
+            pass
+
+        # for node in time_unfolded_regulated_nx.nodes:
+        #     if node.startswith("s") or node == "t":
+        #         continue
+        #
+        #     for source in allowed_drivers:
+        #         node_ts = int(node.split("_")[0])
+        #         allow_stimuli = False
+        #
+        #         for stimuli_allowed_period in stimuli_allowed_periods:
+        #             if stimuli_allowed_period[0] <= node_ts < stimuli_allowed_period[1]:
+        #                 allow_stimuli = True
+        #                 break
+        #
+        #         if allow_stimuli and node.endswith("_{}".format(source)):
+        #             super_source_node = "{}_{}".format(source_node, source)
+        #
+        #             if layout:
+        #                 time_unfolded_regulated_nx.add_edge(
+        #                     super_source_node, node,
+        #                     # ** style super nodes to columns
+        #                     style="invis" if layout_hide_super_source_nodes else "dashed",
+        #                     # color="#9ACEEB",
+        #                     arrowsize=0.60,
+        #                     penwidth=0.75,
+        #                     arrowhead="vee"
+        #                 )
+        #             else:
+        #                 time_unfolded_regulated_nx.add_edge(super_source_node, node)
+        #
+        #             time_unfolded_regulated_nx[super_source_node][node]["capacity"] = 1.0
+        #     pass
+
+        """
+        execute max flow if find_max_capacity_each_source is False
+        """
+
         if find_max_capacity_each_source is False:
             if force_shortest_path:
                 flow_value, flow_dict = nx_flow.maximum_flow(
-                    unfolded_dnx, source_node, sink_node,
+                    time_unfolded_regulated_nx, source_node, sink_node,
                     flow_func=nx_flow.shortest_augmenting_path
                 )
             else:
                 flow_value, flow_dict = nx_flow.maximum_flow(
-                    unfolded_dnx, source_node, sink_node)
+                    time_unfolded_regulated_nx, source_node, sink_node)
 
         """
         find_max_capacity_each_source 
@@ -1085,15 +1148,15 @@ class TemporalNetwork:
 
                 if force_shortest_path:
                     flow_value_to_sink, flow_dict_to_sink = nx_flow.maximum_flow(
-                        unfolded_dnx, super_source_node, sink_node,
+                        time_unfolded_regulated_nx, super_source_node, sink_node,
                         flow_func=nx_flow.shortest_augmenting_path)
                 else:
                     flow_value_to_sink, flow_dict_to_sink = nx_flow.maximum_flow(
-                        unfolded_dnx, super_source_node, sink_node)
+                        time_unfolded_regulated_nx, super_source_node, sink_node)
 
                 if find_max_capacity_write_result_to_file_func is not None:
                     find_max_capacity_write_result_to_file_func(
-                        super_source_node, flow_value_to_sink, flow_dict_to_sink, unfolded_dnx)
+                        super_source_node, flow_value_to_sink, flow_dict_to_sink, time_unfolded_regulated_nx)
 
                 if layout is False:
                     del flow_dict_to_sink
@@ -1110,7 +1173,7 @@ class TemporalNetwork:
                 ))
                 pass
 
-            del unfolded_dnx
+            del time_unfolded_regulated_nx
 
             if layout is False:
                 return super_source_max_capacity
@@ -1125,8 +1188,10 @@ class TemporalNetwork:
 
         # unfolded_dnx = res
         """
-        Remove in-active stimuli edges from the time-unfolded network 
+        Remove inactive stimuli edges from the time-unfolded network 
         """
+
+        layout_hide_inactive_stimuli = False
 
         if layout_hide_inactive_stimuli:
             for node in sorted_nodes:
@@ -1135,8 +1200,8 @@ class TemporalNetwork:
                 else:
                     super_source_node = "{}_{}".format(source_node, node)
                 for origin, flow in flow_dict[super_source_node].items():
-                    if unfolded_dnx.has_edge(super_source_node, origin) and flow == 0:
-                        unfolded_dnx.remove_edge(super_source_node, origin)
+                    if time_unfolded_regulated_nx.has_edge(super_source_node, origin) and flow == 0:
+                        time_unfolded_regulated_nx.remove_edge(super_source_node, origin)
                         pass
 
         """
@@ -1147,7 +1212,7 @@ class TemporalNetwork:
                 for to_node, flow in to_nodes.items():
                     if flow > 0:
                         # default color for an edge with flow > 0
-                        unfolded_dnx[from_node][to_node]["color"] = "#B900CA"
+                        time_unfolded_regulated_nx[from_node][to_node]["color"] = "#B900CA"
                         # if from_node == source_node:
                         #     # unfolded_dnx[from_node][to_node]["label"] = "s>{}".format(to_node)
                         #     pass
@@ -1214,7 +1279,7 @@ class TemporalNetwork:
             for control_path in control_paths:
                 from_node = control_path[0]
                 for to_node in control_path[1:]:
-                    unfolded_dnx[from_node][to_node]["color"] = distinct_colors[color_index]
+                    time_unfolded_regulated_nx[from_node][to_node]["color"] = distinct_colors[color_index]
                     from_node = to_node
                     pass
                 color_index += 1
@@ -1226,7 +1291,7 @@ class TemporalNetwork:
         source_to_sink_paths = []
 
         if create_all_time_independent_paths:
-            unfolded_dnx_copy = unfolded_dnx.copy()
+            unfolded_dnx_copy = time_unfolded_regulated_nx.copy()
 
             for source_to_sink_path in nx.all_simple_paths(unfolded_dnx_copy, "s", "t"):
                 prev_node = None
@@ -1247,34 +1312,36 @@ class TemporalNetwork:
             pass
 
         """
-        Driver nodes with respect to time
+        Intervention points
         """
 
-        driver_nodes = "Disabled"
+        # dict[driver-node] = [t_1, t_2, ....]
+        intervention_points = "Disabled"
 
         if find_max_capacity_each_source is False:
-            driver_nodes = dict()
+            intervention_points = dict()
 
             for node in allowed_drivers:
-                driver_nodes[node] = []
-                pass
+                intervention_points[node] = []
 
-            for node in sorted_nodes:
-                super_source_node = "{}_{}".format(source_node, node)
-
-                for stimuli_edge in unfolded_dnx.out_edges(super_source_node):
-                    # reverse edges
-                    if stimuli_edge[1] == source_node:
+                # super_source_node = "{}_{}".format(source_node, node)
+                for to_driver_node, flow in flow_dict["s_{}".format(node)].items():
+                    if flow == 0.0:
                         continue
 
-                    driver_node_id_and_time = stimuli_edge[1].split("_")
+                    intervention_time_driver_node_id = to_driver_node.split("_")
 
-                    driver_nodes[int(driver_node_id_and_time[1])].append(int(driver_node_id_and_time[0]))
-
-            for node in allowed_drivers:
-                if len(driver_nodes[node]) == 0:
-                    del driver_nodes[node]
+                    intervention_points[node].append(int(intervention_time_driver_node_id[0]))
+                    pass
                 pass
+            pass
 
-        return unfolded_dnx, flow_value, flow_dict, control_paths, source_to_sink_paths, driver_nodes
+        return {
+            "unfolded_dnx": time_unfolded_regulated_nx,
+            "flow_value": flow_value,
+            "flow_dict": flow_dict,
+            "control_paths": control_paths,
+            "source_to_sink_paths": source_to_sink_paths,
+            "intervention_points": intervention_points
+        }
         pass
