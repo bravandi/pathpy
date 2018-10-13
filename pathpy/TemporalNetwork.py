@@ -856,6 +856,12 @@ class TemporalNetwork:
                 layout_y_pos_gap = 1.25
             pass
 
+        """
+        if network is empty create a dummy layer by adding one temporal edge (self loop) 
+        """
+        if len(self.ordered_times) == 0:
+            self.addEdge(self.nodes[0], self.nodes[0], 1)
+
         if len(stimuli_allowed_periods) == 0:
             """
             directly stimulating nodes in the last time confirms we can control a node at anytime.
