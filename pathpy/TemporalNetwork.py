@@ -29,6 +29,7 @@ import collections as _co
 import bisect as _bs
 import datetime as _dt
 import time as _t
+import random
 
 from pathpy.Log import Log
 from pathpy.Log import Severity
@@ -1191,8 +1192,6 @@ class TemporalNetwork:
         Remove inactive stimuli edges from the time-unfolded network 
         """
 
-        layout_hide_inactive_stimuli = False
-
         if layout_hide_inactive_stimuli:
             for node in sorted_nodes:
                 if source_node == "t":
@@ -1345,3 +1344,59 @@ class TemporalNetwork:
             "intervention_points": intervention_points
         }
         pass
+
+    def randomizeRandomTime(self):
+        """
+        Random time (RT): this randomization assigns random time steps to each link, thereby
+        removing all temporal correlations, both overall fluctuations in the average degree, and local
+        correlations such as consequent and simultaneous events. This randomization does not change who
+        interacts with whom, that is, it does not change the aggregated network.
+        However, by separating simultaneous events, the randomization changes the degree distribution within
+        a time step indirectly.
+
+        Source: Structural controllability of temporal networks (Márton Pósfai and Philipp Hövel 2014 New J. Phys. 16 123055)
+
+        :return: A new instance of TemporalNetwork.
+        """
+        tnet_randomized = TemporalNetwork()
+
+        for n in self.nodes:
+            tnet_randomized.addNode(n)
+            pass
+
+        for e in self.tedges:
+            tnet_randomized.addEdge(
+                e[0],
+                e[1],
+                random.randint(1, len(self.ordered_times))
+            )
+            pass
+
+        return tnet_randomized
+
+    def randomizeShuffledTime(self):
+        """
+        Shuffled time (ST): we shuffle the order of all of the time steps. This removes all
+        correlations between subsequent time steps, such as casual chain of events, while the structure
+        within a time steps remains unchanged. For the one hour coarse grained network,
+        we only shuffle the time steps within the working hours of each workday.
+
+        Source: Structural controllability of temporal networks (Márton Pósfai and Philipp Hövel 2014 New J. Phys. 16 123055)
+
+        :return: A new instance of TemporalNetwork.
+        """
+        tnet_randomized = TemporalNetwork()
+
+        for n in self.nodes:
+            tnet_randomized.addNode(n)
+            pass
+
+        for e in self.tedges:
+            tnet_randomized.addEdge(
+                e[0],
+                e[1],
+                random.choice(self.ordered_times)
+            )
+            pass
+
+        return tnet_randomized
