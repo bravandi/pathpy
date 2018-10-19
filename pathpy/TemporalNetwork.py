@@ -1351,7 +1351,7 @@ class TemporalNetwork:
         }
         pass
 
-    def randomizeRandomTime(self):
+    def randRandomTimes(self):
         """
         Random time (RT): this randomization assigns random time steps to each link, thereby
         removing all temporal correlations, both overall fluctuations in the average degree, and local
@@ -1380,14 +1380,11 @@ class TemporalNetwork:
 
         return tnet_randomized
 
-    def randomizeShuffledTime(self):
+    def randRandomlyPermutedTimes(self):
         """
-        Shuffled time (ST): we shuffle the order of all of the time steps. This removes all
-        correlations between subsequent time steps, such as casual chain of events, while the structure
-        within a time steps remains unchanged. For the one hour coarse grained network,
-        we only shuffle the time steps within the working hours of each workday.
+        Randomly permuted times (RP): As a temporal counterpart to the configuration model, one can permute the contact times randomly while keeping the network structure and the numbers of contacts between all pairs of vertices fixed.
 
-        Source: Structural controllability of temporal networks (Márton Pósfai and Philipp Hövel 2014 New J. Phys. 16 123055)
+        Source: Holme, Petter, and Jari Saramäki. "Temporal networks."
 
         :return: A new instance of TemporalNetwork.
         """
@@ -1397,12 +1394,141 @@ class TemporalNetwork:
             tnet_randomized.addNode(n)
             pass
 
-        for e in self.tedges:
-            tnet_randomized.addEdge(
-                e[0],
-                e[1],
-                random.choice(self.ordered_times)
-            )
+        t_edges = self.tedges[:]
+        random.shuffle(t_edges)
+
+        for i in range(int(len(t_edges) / 2)):
+            edge_1 = t_edges.pop()
+            edge_2 = t_edges.pop()
+
+            tnet_randomized.addEdge(edge_1[0], edge_1[1], edge_2[2])
+            tnet_randomized.addEdge(edge_2[0], edge_2[1], edge_1[2])
+            pass
+
+        return tnet_randomized
+
+    def randRandomizedEdges(self):
+        """
+        Randomized edges (RE): This method is similar to the configuration model for static graphs mentioned above, with the additional ingredient that contact sequences of edges follow the edges when these are rewired.
+
+        Source: Holme, Petter, and Jari Saramäki. "Temporal networks."
+
+        :return: A new instance of TemporalNetwork.
+        """
+        tnet_randomized = TemporalNetwork()
+
+        for n in self.nodes:
+            tnet_randomized.addNode(n)
+            pass
+
+        t_edges = self.tedges[:]
+
+        for i in range(0, len(t_edges)):
+            edge_i = t_edges[i]
+            no_self_edge_or_multiple_edge = False
+
+            edge_i_modify = None
+            edge_j_modify = None
+
+            while no_self_edge_or_multiple_edge is False:
+                j = random.randint(0, len(t_edges) - 1)
+                edge_j = t_edges[j]
+
+                if random.randint(0, 1) == 0:
+                    edge_i_modify = [edge_i[0], edge_j[1], edge_i[2]]
+                    edge_j_modify = [edge_j[0], edge_i[1], edge_j[2]]
+                    pass
+                else:
+                    edge_i_modify = [edge_i[0], edge_j[0], edge_i[2]]
+                    edge_j_modify = [edge_i[1], edge_j[1], edge_j[2]]
+                    pass
+
+                no_self_edge_or_multiple_edge = True
+
+                if edge_i_modify[0] == edge_i_modify[1] or edge_j_modify[0] == edge_j_modify[1]:
+                    no_self_edge_or_multiple_edge = False
+
+                if edge_i_modify[0] == edge_j_modify[0] and edge_i_modify[1] == edge_j_modify[1]:
+                    no_self_edge_or_multiple_edge = False
+                pass
+            t_edges[i] = edge_i_modify
+            t_edges[j] = edge_j_modify
+            pass
+
+        for edge in t_edges:
+            tnet_randomized.addEdge(edge[0], edge[1], edge[2])
+
+        return tnet_randomized
+
+    def randRandomNetwork(self):
+        """
+        Random network (RN): in this randomization, the network for each time step is replaced by an Erdos–Renyi network with the same number of links, thereby removing all network structure, including the heterogeneity from the degree distribution.
+
+        Source: Structural controllability of temporal networks (Márton Pósfai and Philipp Hövel 2014 New J. Phys. 16 123055)
+
+        :return: A new instance of TemporalNetwork.
+        """
+        tnet_randomized = TemporalNetwork()
+
+        for time, tedges in self.time.items():
+
+            while True:
+                random_graph = nx.gnm_random_graph(n=len(self.nodes), m=len(tedges), directed=True)
+                random_graph = nx.DiGraph(random_graph)
+
+                if len(list(random_graph.selfloop_edges())) == 0:
+                    break
+                pass
+
+            for edge in random_graph.edges():
+                tnet_randomized.addEdge(edge[0], edge[1], time)
+
+            del random_graph
+            pass
+
+        return tnet_randomized
+        pass
+
+    def randDegreePreservedRandomNetwork(self):
+        """
+        Degree preserved network (DPN): for this randomization, we break all connections, and randomly rewire them within a time step.
+        This way only the degree distribution is preserved, but all other correlations in the network structure are eliminated.
+        Similarly to Random network (RN), we do not change the interaction times.
+
+        Source: Structural controllability of temporal networks (Márton Pósfai and Philipp Hövel 2014 New J. Phys. 16 123055)
+
+        :return: A new instance of TemporalNetwork.
+        """
+        tnet_randomized = TemporalNetwork()
+
+        sorted_nodes = sorted(self.nodes)
+
+        for time, tedges in self.time.items():
+            nx_d = nx.DiGraph()
+
+            nx_d.add_nodes_from(sorted_nodes)
+
+            for tedge in tedges:
+                nx_d.add_edge(tedge[0], tedge[1])
+                pass
+
+            din = [nx_d.in_degree(node) for node in sorted_nodes]
+            dout = [nx_d.out_degree(node) for node in sorted_nodes]
+
+            del nx_d
+
+            while True:
+                random_graph = nx.directed_configuration_model(din, dout)
+                random_graph = nx.DiGraph(random_graph)
+
+                if len(list(random_graph.selfloop_edges())) == 0:
+                    break
+                pass
+
+            for edge in random_graph.edges():
+                tnet_randomized.addEdge(edge[0], edge[1], time)
+
+            del random_graph, din, dout
             pass
 
         return tnet_randomized
