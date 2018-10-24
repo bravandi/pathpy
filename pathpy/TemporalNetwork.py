@@ -1472,6 +1472,7 @@ class TemporalNetwork:
         tnet_randomized = TemporalNetwork()
 
         for time, tedges in self.time.items():
+            i = 0
 
             for i in range(max_try_to_avoid_self_loops_on_each_time_layer):
                 random_graph = nx.gnm_random_graph(n=len(self.nodes), m=len(tedges), directed=True)
@@ -1479,6 +1480,11 @@ class TemporalNetwork:
 
                 if len(list(random_graph.selfloop_edges())) == 0:
                     break
+                pass
+
+            if i == max_try_to_avoid_self_loops_on_each_time_layer - 1:
+                print("[RN time-layer:{}] Could not avoid self-loop after {} tries.".format(
+                    time, max_try_to_avoid_self_loops_on_each_time_layer))
                 pass
 
             for edge in random_graph.edges():
@@ -1519,12 +1525,18 @@ class TemporalNetwork:
 
             del nx_d
 
+            i = 0
             for i in range(max_try_to_avoid_self_loops_on_each_time_layer):
                 random_graph = nx.directed_configuration_model(din, dout)
                 random_graph = nx.DiGraph(random_graph)
 
                 if len(list(random_graph.selfloop_edges())) == 0:
                     break
+                pass
+
+            if i == max_try_to_avoid_self_loops_on_each_time_layer - 1:
+                print("[DPN time-layer:{}] Could not avoid self-loop after {} tries.".format(
+                    time, max_try_to_avoid_self_loops_on_each_time_layer))
                 pass
 
             for edge in random_graph.edges():
