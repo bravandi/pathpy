@@ -1460,19 +1460,20 @@ class TemporalNetwork:
 
         return tnet_randomized
 
-    def randRandomNetwork(self):
+    def randRandomNetwork(self, max_try_to_avoid_self_loops_on_each_time_layer=200):
         """
         Random network (RN): in this randomization, the network for each time step is replaced by an Erdos–Renyi network with the same number of links, thereby removing all network structure, including the heterogeneity from the degree distribution.
 
         Source: Structural controllability of temporal networks (Márton Pósfai and Philipp Hövel 2014 New J. Phys. 16 123055)
 
+        :param max_try_to_avoid_self_loops_on_each_time_layer:
         :return: A new instance of TemporalNetwork.
         """
         tnet_randomized = TemporalNetwork()
 
         for time, tedges in self.time.items():
 
-            while True:
+            for i in range(max_try_to_avoid_self_loops_on_each_time_layer):
                 random_graph = nx.gnm_random_graph(n=len(self.nodes), m=len(tedges), directed=True)
                 random_graph = nx.DiGraph(random_graph)
 
@@ -1489,7 +1490,7 @@ class TemporalNetwork:
         return tnet_randomized
         pass
 
-    def randDegreePreservedRandomNetwork(self):
+    def randDegreePreservedRandomNetwork(self, max_try_to_avoid_self_loops_on_each_time_layer=200):
         """
         Degree preserved network (DPN): for this randomization, we break all connections, and randomly rewire them within a time step.
         This way only the degree distribution is preserved, but all other correlations in the network structure are eliminated.
@@ -1497,6 +1498,7 @@ class TemporalNetwork:
 
         Source: Structural controllability of temporal networks (Márton Pósfai and Philipp Hövel 2014 New J. Phys. 16 123055)
 
+        :param max_try_to_avoid_self_loops_on_each_time_layer:
         :return: A new instance of TemporalNetwork.
         """
         tnet_randomized = TemporalNetwork()
@@ -1517,7 +1519,7 @@ class TemporalNetwork:
 
             del nx_d
 
-            while True:
+            for i in range(max_try_to_avoid_self_loops_on_each_time_layer):
                 random_graph = nx.directed_configuration_model(din, dout)
                 random_graph = nx.DiGraph(random_graph)
 
