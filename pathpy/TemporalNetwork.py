@@ -819,7 +819,10 @@ class TemporalNetwork:
             tex_file.write(''.join(output))
 
     def unfoldedNetworkControlMaxFlow(
-            self, allowed_drivers=[], memory=0, stimuli_allowed_periods=[],
+            self,
+            allowed_drivers=[],
+            memory=0,
+            stimuli_allowed_periods=[],
             time_unfolded_regulated_nx=None,
             middle_edges_capacity=1,
             layout=False,
@@ -830,23 +833,39 @@ class TemporalNetwork:
             layout_y_pos_gap=None,
             layout_memory_edge_style="",
             force_shortest_path=False,
-            create_all_time_independent_paths=False, color_set=None,
+            create_all_time_independent_paths=False,
+            color_set=None,
             find_max_capacity_each_source=False,
-            find_max_capacity_write_result_to_file_func=None
+            find_max_capacity_write_result_to_file_func=None,
+            enable_validations=True
     ):
         """
         Generates a dot file that can be compiled to a time-unfolded
         representation of the temporal network.
 
-        @param allowed_drivers: Fix
-        @param memory:  dict specify how long a node keeps information. If an integer is given
-                        it will be assigned for all nodes. Default is infinity set by -1
-        @param layout: Fix
-        @param layout_hide_flow_regulatory_nodes: Fix
-        @param create_all_time_independent_paths: Build control paths. This is useful if controlpaths statistics is
-                required. Or. to draw the graph.
-        @param color_set: a function that gets number of required distinct colors and returns an
-                          array of colors
+        :param allowed_drivers:
+        :param memory: dictionary. Specify how long a node keeps information.
+                        If an integer is given it will be assigned for all nodes.
+                        Default (value -1) is infinity
+        :param stimuli_allowed_periods:
+        :param time_unfolded_regulated_nx:
+        :param middle_edges_capacity:
+        :param layout:
+        :param layout_hide_flow_regulatory_nodes:
+        :param layout_hide_source_sink:
+        :param layout_hide_super_source_nodes:
+        :param layout_hide_inactive_stimuli:
+        :param layout_y_pos_gap:
+        :param layout_memory_edge_style:
+        :param force_shortest_path:
+        :param create_all_time_independent_paths: Build control paths.
+                This is useful if control paths statistics is required. Or. to draw the graph.
+        :param color_set: a function that returns a list of distinct colors.
+        :param find_max_capacity_each_source:
+        :param find_max_capacity_write_result_to_file_func:
+        :param enable_validations: allows to perform the below validations.
+                    1) no flow bigger than one exists
+        :return:
         """
 
         if layout_y_pos_gap is None:
@@ -1025,7 +1044,7 @@ class TemporalNetwork:
                 time_unfolded_regulated_nx.add_node(sink_node)
 
             """
-            Connect deadline layer to target node
+            Connect deadline layer to sink node
             """
 
             for node in self.nodes:
@@ -1051,7 +1070,8 @@ class TemporalNetwork:
             pass
         else:
             """
-            the time-unfolded network is given so make sure its super source nodes has no out-edges
+            the time-unfolded network is given so make sure its super source nodes has no out-edges as the next lines 
+            of code will add these edge. 
             """
             remove_edges = []
 
@@ -1231,9 +1251,19 @@ class TemporalNetwork:
             pass
 
         """
+        Validation that all flows are properly calculated.
+        """
+        if enable_validations is True:
+            if len([(f_n, f_v) for f_n, f_v in flow_dict.items() if
+                    f_n != "s" and len([f for f in list(f_v.values()) if f > 1 or f < 0]) > 0]) > 0:
+                raise Exception("A flow cannot be bigger than 1.")
+            pass
+
+        """
         Build control paths using recursive function below.
         Then color code the paths if layout is enabled
         """
+
         control_paths = []
 
         for node in allowed_drivers:
@@ -1243,6 +1273,7 @@ class TemporalNetwork:
                 super_source_node = "{}_{}".format(source_node, node)
 
             for to_node, flow in flow_dict[super_source_node].items():
+
                 if flow == 1:
                     control_path = [super_source_node]
 
