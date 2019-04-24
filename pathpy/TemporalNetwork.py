@@ -837,23 +837,39 @@ class TemporalNetwork:
             layout_y_pos_gap=None,
             layout_memory_edge_style="",
             force_shortest_path=False,
-            create_all_time_independent_paths=False, color_set=None,
+            create_all_time_independent_paths=False,
+            color_set=None,
             find_max_capacity_each_source=False,
-            find_max_capacity_write_result_to_file_func=None
+            find_max_capacity_write_result_to_file_func=None,
+            enable_validations=True
     ):
         """
         Generates a dot file that can be compiled to a time-unfolded
         representation of the temporal network.
 
-        @param allowed_drivers: Fix
-        @param memory:  dict specify how long a node keeps information. If an integer is given
-                        it will be assigned for all nodes. Default is infinity set by -1
-        @param layout: Fix
-        @param layout_hide_flow_regulatory_nodes: Fix
-        @param create_all_time_independent_paths: Build control paths. This is useful if controlpaths statistics is
-                required. Or. to draw the graph.
-        @param color_set: a function that gets number of required distinct colors and returns an
-                          array of colors
+        :param allowed_drivers:
+        :param memory: dictionary. Specify how long a node keeps information.
+                        If an integer is given it will be assigned for all nodes.
+                        Default (value -1) is infinity
+        :param stimuli_allowed_periods:
+        :param time_unfolded_regulated_nx:
+        :param middle_edges_capacity:
+        :param layout:
+        :param layout_hide_flow_regulatory_nodes:
+        :param layout_hide_source_sink:
+        :param layout_hide_super_source_nodes:
+        :param layout_hide_inactive_stimuli:
+        :param layout_y_pos_gap:
+        :param layout_memory_edge_style:
+        :param force_shortest_path:
+        :param create_all_time_independent_paths: Build control paths.
+                This is useful if control paths statistics is required. Or. to draw the graph.
+        :param color_set: a function that returns a list of distinct colors.
+        :param find_max_capacity_each_source:
+        :param find_max_capacity_write_result_to_file_func:
+        :param enable_validations: allows to perform the below validations.
+                    1) no flow bigger than one exists
+        :return:
         """
 
         if layout_y_pos_gap is None:
@@ -1032,7 +1048,7 @@ class TemporalNetwork:
                 time_unfolded_regulated_nx.add_node(sink_node)
 
             """
-            Connect deadline layer to target node
+            Connect deadline layer to sink node
             """
 
             for node in self.nodes:
@@ -1058,7 +1074,8 @@ class TemporalNetwork:
             pass
         else:
             """
-            the time-unfolded network is given so make sure its super source nodes has no out-edges
+            the time-unfolded network is given so make sure its super source nodes has no out-edges as the next lines 
+            of code will add these edge. 
             """
             remove_edges = []
 
@@ -1239,9 +1256,19 @@ class TemporalNetwork:
             pass
 
         """
+        Validation that all flows are properly calculated.
+        """
+        if enable_validations is True:
+            if len([(f_n, f_v) for f_n, f_v in flow_dict.items() if
+                    f_n != "s" and len([f for f in list(f_v.values()) if f > 1 or f < 0]) > 0]) > 0:
+                raise Exception("A flow cannot be bigger than 1.")
+            pass
+
+        """
         Build control paths using recursive function below.
         Then color code the paths if layout is enabled
         """
+
         control_paths = []
 
         for node in allowed_drivers:
@@ -1251,6 +1278,7 @@ class TemporalNetwork:
                 super_source_node = "{}_{}".format(source_node, node)
 
             for to_node, flow in flow_dict[super_source_node].items():
+
                 if flow == 1:
                     control_path = [super_source_node]
 
@@ -1468,24 +1496,31 @@ class TemporalNetwork:
 
         return tnet_randomized
 
-    def randRandomNetwork(self):
+    def randRandomNetwork(self, max_try_to_avoid_self_loops_on_each_time_layer=200):
         """
         Random network (RN): in this randomization, the network for each time step is replaced by an Erdos–Renyi network with the same number of links, thereby removing all network structure, including the heterogeneity from the degree distribution.
 
         Source: Structural controllability of temporal networks (Márton Pósfai and Philipp Hövel 2014 New J. Phys. 16 123055)
 
+        :param max_try_to_avoid_self_loops_on_each_time_layer:
         :return: A new instance of TemporalNetwork.
         """
         tnet_randomized = TemporalNetwork()
 
         for time, tedges in self.time.items():
+            i = 0
 
-            while True:
+            for i in range(max_try_to_avoid_self_loops_on_each_time_layer):
                 random_graph = nx.gnm_random_graph(n=len(self.nodes), m=len(tedges), directed=True)
                 random_graph = nx.DiGraph(random_graph)
 
                 if len(list(random_graph.selfloop_edges())) == 0:
                     break
+                pass
+
+            if i == max_try_to_avoid_self_loops_on_each_time_layer - 1:
+                print("[RN time-layer:{}] Could not avoid self-loop after {} tries.".format(
+                    time, max_try_to_avoid_self_loops_on_each_time_layer))
                 pass
 
             for edge in random_graph.edges():
@@ -1497,7 +1532,7 @@ class TemporalNetwork:
         return tnet_randomized
         pass
 
-    def randDegreePreservedRandomNetwork(self):
+    def randDegreePreservedRandomNetwork(self, max_try_to_avoid_self_loops_on_each_time_layer=200):
         """
         Degree preserved network (DPN): for this randomization, we break all connections, and randomly rewire them within a time step.
         This way only the degree distribution is preserved, but all other correlations in the network structure are eliminated.
@@ -1505,6 +1540,7 @@ class TemporalNetwork:
 
         Source: Structural controllability of temporal networks (Márton Pósfai and Philipp Hövel 2014 New J. Phys. 16 123055)
 
+        :param max_try_to_avoid_self_loops_on_each_time_layer:
         :return: A new instance of TemporalNetwork.
         """
         tnet_randomized = TemporalNetwork()
@@ -1525,12 +1561,18 @@ class TemporalNetwork:
 
             del nx_d
 
-            while True:
+            i = 0
+            for i in range(max_try_to_avoid_self_loops_on_each_time_layer):
                 random_graph = nx.directed_configuration_model(din, dout)
                 random_graph = nx.DiGraph(random_graph)
 
                 if len(list(random_graph.selfloop_edges())) == 0:
                     break
+                pass
+
+            if i == max_try_to_avoid_self_loops_on_each_time_layer - 1:
+                print("[DPN time-layer:{}] Could not avoid self-loop after {} tries.".format(
+                    time, max_try_to_avoid_self_loops_on_each_time_layer))
                 pass
 
             for edge in random_graph.edges():
