@@ -652,6 +652,10 @@ class TemporalNetwork:
 
         prev_ts = 0
 
+        if layout:
+            g.node["0_{}".format(sorted_nodes[0])]["xlabel"] = "t=0"
+            pass
+
         for ts in self.ordered_times:
             prev_time_nodes_temp = []
 
@@ -819,7 +823,10 @@ class TemporalNetwork:
             tex_file.write(''.join(output))
 
     def unfoldedNetworkControlMaxFlow(
-            self, allowed_drivers=[], memory=0, stimuli_allowed_periods=[],
+            self,
+            allowed_drivers=[],
+            memory=0,
+            stimuli_allowed_periods=[],
             time_unfolded_regulated_nx=None,
             middle_edges_capacity=1,
             layout=False,
@@ -1073,7 +1080,8 @@ class TemporalNetwork:
         for driver_node in allowed_drivers:
             super_source_node = "s_{}".format(driver_node)
 
-            for observation_time in self.ordered_times:
+            # '[0] +' to allow stimulating t0 layer
+            for observation_time in [0] + self.ordered_times:
                 for stimuli_allowed_period in stimuli_allowed_periods:
                     if stimuli_allowed_period[0] <= observation_time < stimuli_allowed_period[1]:
                         driver_node_at_layer = "{}_{}".format(observation_time, driver_node)
