@@ -1118,6 +1118,7 @@ class TemporalNetwork:
             super_source_node = "s_{}".format(driver_node)
 
             # '[0] +' to allow stimulating t0 layer
+            # for observation_time in [0] + self.ordered_times:
             for observation_time in self.ordered_times:
                 for stimuli_allowed_period in stimuli_allowed_periods:
                     if stimuli_allowed_period[0] <= observation_time < stimuli_allowed_period[1]:
