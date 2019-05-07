@@ -613,7 +613,7 @@ class TemporalNetwork:
         :return:
         """
 
-        if memory is not dict:
+        if type(memory) is not dict:
             memory_int = memory
             memory = dict()
 
@@ -921,6 +921,26 @@ class TemporalNetwork:
                 layout=layout, layout_memory_edge_style=layout_memory_edge_style)
 
             """
+            Remove self-links on driver nodes and in-links
+            """
+
+            for driver_node in allowed_drivers:
+                remove_edges = []
+
+                for time_layer in self.ordered_times:
+                    remove_edges += [
+                        e for e in
+                        time_unfolded_regulated_nx.in_edges("{}_{}".format(time_layer, driver_node))
+                        if e[0][0:2] != "s_"
+                    ]
+
+                    pass
+
+                for remove_edge in remove_edges:
+                    time_unfolded_regulated_nx.remove_edge(remove_edge[0], remove_edge[1])
+                pass
+
+            """
             Add an extra node for each node with in-deg > 1 and split in-deg and out-deg
             between this new node to make sure the residual capacity of all nodes is 1                
             """
@@ -1098,7 +1118,7 @@ class TemporalNetwork:
             super_source_node = "s_{}".format(driver_node)
 
             # '[0] +' to allow stimulating t0 layer
-            for observation_time in [0] + self.ordered_times:
+            for observation_time in self.ordered_times:
                 for stimuli_allowed_period in stimuli_allowed_periods:
                     if stimuli_allowed_period[0] <= observation_time < stimuli_allowed_period[1]:
                         driver_node_at_layer = "{}_{}".format(observation_time, driver_node)
